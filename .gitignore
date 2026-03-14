@@ -4,6 +4,7 @@ run/
 libs/*.jar
 *.class
 out/
+bin/
 .idea/
 *.iml
 .vscode/

@@ -75,6 +75,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         )
     )
     private float momentum$replaceCoastDecay(float value, float rate) {
+        if (braking) return value;  // braking has its own deceleration; don't double-apply coast
         return AUtils.zero(value, MomentumConfig.get().coastDecay);
     }
 
@@ -146,7 +147,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     // ── Brake decay ───────────────────────────────────────────────────────────
 
     /**
-     * Replaces the braking deceleration in movementTick() with brakeDecay from config.
+     * Replaces the braking deceleration in movementTick() with a multiplicative decay.
      * Automobility's braking line:
      *   this.engineSpeed = Math.max(this.engineSpeed - 0.15f, -0.25f);
      *
@@ -156,8 +157,11 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      *   2 — Math.max(engineSpeed, 0)      acceleration (line ~782)
      *   3 — Math.max(engineSpeed-0.15f, -0.25f)  BRAKING  (line ~799)  ← us
      *
-     * We redirect Math.max, read the pre-subtraction engineSpeed from the shadow field,
-     * apply brakeDecay, and preserve the original -0.25f reverse floor (arg b).
+     * Multiplicative formula: engineSpeed * (1 - brakeDecay) per tick.
+     * This makes deceleration proportional to current speed — large at high speeds,
+     * tapering naturally at low speeds — so a brief press only reduces speed by a
+     * fraction rather than driving it abruptly to zero.
+     * Floor is 0 (Space does not push into reverse; let the car roll back naturally).
      */
     @Redirect(
         method = "movementTick",
@@ -168,8 +172,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         )
     )
     private float momentum$brakeDecay(float a, float b) {
-        // engineSpeed shadow holds the pre-subtraction value here (field not yet written)
-        return Math.max(engineSpeed - MomentumConfig.get().brakeDecay, b);
+        return Math.max(engineSpeed * (1f - MomentumConfig.get().brakeDecay), 0f);
     }
 
     // ── Debug accessors (SteeringDebugAccessor) ───────────────────────────────

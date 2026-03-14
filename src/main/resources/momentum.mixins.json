@@ -6,7 +6,8 @@
     "AutomobileEntityMixin"
   ],
   "client": [
-    "AutomobileHudMixin"
+    "AutomobileHudMixin",
+    "AutomobileBrakeMixin"
   ],
   "injectors": {
     "defaultRequire": 1

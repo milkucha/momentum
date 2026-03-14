@@ -47,19 +47,21 @@ public class MomentumConfig {
     public float accelerationScale = 0.85f;
 
     /**
-     * How much engineSpeed is reduced per tick when braking (S key held).
-     * Automobility's original value is 0.15f, which is very abrupt — the car nearly
-     * stops in 4–5 ticks from full speed.
+     * Fraction of engineSpeed removed per tick while braking (Space key held).
+     * Braking is MULTIPLICATIVE: each tick, engineSpeed *= (1 - brakeDecay).
+     * This means deceleration is proportional to current speed — strong at high speed,
+     * tapering naturally at low speed — so a brief press reduces speed by a fraction
+     * rather than driving it abruptly to zero. Floor is 0 (Space never pushes into reverse).
      *
-     * Lower = softer brake feel (car slows more gradually, reverse is reachable faster).
-     * Higher = snappier braking (approaching vanilla feel).
+     * Lower = softer, more gradual braking.
+     * Higher = sharper initial speed drop per tick.
      *
-     * Recommended range: 0.04 – 0.15
-     *   0.15 → original Automobility behaviour (~4 ticks to stop from full speed)
-     *   0.08 → moderate braking  ← default
-     *   0.04 → soft, gradual deceleration
+     * Recommended range: 0.05 – 0.25
+     *   0.25 → aggressive: ~25% speed drop per tick
+     *   0.10 → moderate: ~10% per tick  ← default
+     *   0.05 → gentle: ~5% per tick
      */
-    public float brakeDecay = 0.08f;
+    public float brakeDecay = 0.10f;
 
     // ── Steering ─────────────────────────────────────────────────────────────
 
@@ -165,6 +167,10 @@ public class MomentumConfig {
             instance = load();
         }
         return instance;
+    }
+
+    public static void reload() {
+        instance = load();
     }
 
     /**
