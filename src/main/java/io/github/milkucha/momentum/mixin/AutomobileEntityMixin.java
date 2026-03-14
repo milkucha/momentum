@@ -7,8 +7,11 @@ import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import io.github.milkucha.momentum.MomentumBrakeState;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -75,7 +78,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         )
     )
     private float momentum$replaceCoastDecay(float value, float rate) {
-        if (braking) return value;  // braking has its own deceleration; don't double-apply coast
+        if (MomentumBrakeState.brakeHeld) return value;  // brake inject handles decel this tick
         return AUtils.zero(value, MomentumConfig.get().coastDecay);
     }
 
@@ -144,35 +147,40 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         return target / (1f + cfg.steeringUndersteer * speedCurved);
     }
 
-    // ── Brake decay ───────────────────────────────────────────────────────────
+    // ── Brake ────────────────────────────────────────────────────────────────
 
     /**
-     * Replaces the braking deceleration in movementTick() with a multiplicative decay.
-     * Automobility's braking line:
-     *   this.engineSpeed = Math.max(this.engineSpeed - 0.15f, -0.25f);
+     * Applies proportional braking directly to engineSpeed at the end of movementTick,
+     * using MomentumBrakeState.brakeHeld as the source of truth instead of
+     * Automobility's braking flag.
      *
-     * Math.max(FF)F ordinals in movementTick:
-     *   0 — Math.max(getHSpeed(), 0.1f)   gel bounce  (line ~762)
-     *   1 — Math.max(getVSpeed(), 0.9f)   gel bounce  (line ~762)
-     *   2 — Math.max(engineSpeed, 0)      acceleration (line ~782)
-     *   3 — Math.max(engineSpeed-0.15f, -0.25f)  BRAKING  (line ~799)  ← us
+     * Previous approaches hooked into Automobility's provideClientInput / braking flag
+     * pipeline, but that flag can get stuck at true on the server entity indefinitely
+     * (a server↔client sync race), meaning braking ran every tick regardless of key
+     * state and always drove speed to zero. By reading the volatile static that is
+     * written from GLFW at the start of each client tick, both the client entity and
+     * the integrated-server entity apply braking for exactly as long as Space is
+     * physically held — no stuck-flag problem possible.
      *
-     * Multiplicative formula: engineSpeed * (1 - brakeDecay) per tick.
-     * This makes deceleration proportional to current speed — large at high speeds,
-     * tapering naturally at low speeds — so a brief press only reduces speed by a
-     * fraction rather than driving it abruptly to zero.
-     * Floor is 0 (Space does not push into reverse; let the car roll back naturally).
+     * Multiplicative formula: engineSpeed *= (1 - brakeDecay) per tick.
+     * At brakeDecay = 0.1 a brief 1-tick tap drops speed by 10%.
+     * Floor at 0: Space acts as a handbrake, not a reverse accelerator.
+     *
+     * On a dedicated server brakeHeld is always false so this inject is a no-op
+     * (the car coasts normally).
      */
-    @Redirect(
-        method = "movementTick",
-        at = @At(
-            value = "INVOKE",
-            target = "Ljava/lang/Math;max(FF)F",
-            ordinal = 3
-        )
-    )
-    private float momentum$brakeDecay(float a, float b) {
-        return Math.max(engineSpeed * (1f - MomentumConfig.get().brakeDecay), 0f);
+    @Inject(method = "movementTick", at = @At("RETURN"))
+    private void momentum$applyBrake(CallbackInfo ci) {
+        if (!MomentumBrakeState.brakeHeld) return;
+        float decay = MomentumConfig.get().brakeDecay;
+        if (engineSpeed > 1e-3f) {
+            // Proportional deceleration: large effect at high speed, tapering toward 0.
+            // Threshold prevents asymptotic stall — once below ~0.07 km/h, treat as stopped.
+            engineSpeed = engineSpeed * (1f - decay);
+        } else {
+            // Linear push into/through reverse, capped at -0.25 (Automobility's reverse floor)
+            engineSpeed = Math.max(engineSpeed - decay, -0.25f);
+        }
     }
 
     // ── Debug accessors (SteeringDebugAccessor) ───────────────────────────────

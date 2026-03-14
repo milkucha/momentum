@@ -1,5 +1,6 @@
 package io.github.milkucha.momentum;
 
+import io.github.foundationgames.automobility.entity.AutomobileEntity;
 import io.github.milkucha.momentum.config.MomentumConfig;
 import io.github.milkucha.momentum.hud.MomentumHud;
 import net.fabricmc.api.ClientModInitializer;
@@ -26,6 +27,18 @@ public class MomentumClient implements ClientModInitializer {
                 GLFW.GLFW_KEY_F6,
                 "category.momentum"
         ));
+
+        // Update brake state from GLFW before entity ticks so both client and
+        // server entities read the correct value in movementTick this frame.
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity) {
+                long win = client.getWindow().getHandle();
+                MomentumBrakeState.brakeHeld =
+                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+            } else {
+                MomentumBrakeState.brakeHeld = false;
+            }
+        });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (reloadKey.wasPressed() && client.player != null) {

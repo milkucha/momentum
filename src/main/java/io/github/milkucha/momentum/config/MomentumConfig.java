@@ -111,6 +111,21 @@ public class MomentumConfig {
      */
     public float steeringUndersteerCurve = 2.0f;
 
+    /**
+     * Multiplier applied to each car's comfortable speed threshold.
+     * Above this threshold, Automobility drops acceleration to 25% of normal —
+     * it's the point where the car feels like it's "hitting a wall".
+     *
+     * 1.0 = vanilla (no change)
+     * 1.5 = threshold 50% higher (e.g. 60 km/h → 90 km/h)  ← default
+     * 2.0 = threshold doubled (e.g. 60 km/h → 120 km/h)
+     *
+     * Also scales the boost top-up speed and off-road speed cap by the same factor.
+     *
+     * Recommended range: 1.0 – 3.0
+     */
+    public float comfortableSpeedMultiplier = 1.5f;
+
     // ── HUD ──────────────────────────────────────────────────────────────────
 
     /**
