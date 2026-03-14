@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "io.github.milkucha.momentum.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "AutomobileEntityMixin"
+  ],
+  "client": [
+    "AutomobileHudMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
