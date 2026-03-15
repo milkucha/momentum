@@ -76,11 +76,19 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Shadow private void setDrifting(boolean drifting) {}
     @Shadow private void consumeTurboCharge() {}
     @Shadow public void createDriftParticles() {}
+    @Shadow public void boost(float power, int time) {}
 
     // Per-entity previous J-key state for rising/falling edge detection.
     // Instance field (not static) so client and integrated-server entities
     // each track their own edge independently.
     @Unique private boolean momentum$prevDriftKeyHeld = false;
+
+    // ── N-drift state ─────────────────────────────────────────────────────────
+    // Per-entity N-key drift state. nDriftArmed becomes true once the brake-phase
+    // timer has elapsed and the drift has been triggered; used to own the drift
+    // falling-edge (N released → end drift + grant boost).
+    @Unique private boolean momentum$nDriftArmed  = false;
+    @Unique private int     momentum$nBrakeTimer  = 0;
 
     // ── K-drift state ─────────────────────────────────────────────────────────
     // Per-entity previous K-key state — same pattern as momentum$prevDriftKeyHeld
@@ -90,6 +98,14 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Unique private float   momentum$kDriftOffset = 0f;   // current slip angle (degrees)
     @Unique private int     momentum$kDriftTimer  = 0;    // ticks drift has been active
     @Unique private int     momentum$kDriftDir    = 0;    // ±1
+
+    // ── M-drift state ─────────────────────────────────────────────────────────
+    // M key: K-drift when steering≠0, brake when steering=0.
+    @Unique private boolean momentum$prevMKeyHeld = false;
+    @Unique private boolean momentum$mDriftActive = false;
+    @Unique private float   momentum$mDriftOffset = 0f;
+    @Unique private int     momentum$mDriftTimer  = 0;
+    @Unique private int     momentum$mDriftDir    = 0;
 
     // ── Coasting fix ─────────────────────────────────────────────────────────
 
@@ -165,7 +181,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         index = 2
     )
     private float momentum$applyUndersteer(float target) {
-        if (drifting || momentum$kDriftActive) return target;
+        if (drifting || momentum$kDriftActive || momentum$mDriftActive) return target;
         MomentumConfig cfg = MomentumConfig.get();
         float speedCurved = (float) Math.pow(Math.abs(hSpeed), cfg.steeringUndersteerCurve);
         return target / (1f + cfg.steeringUndersteer * speedCurved);
@@ -320,6 +336,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     if (momentum$kDriftTimer >= cfg.kDriftMinTicks) {
                         System.out.println("[Momentum-KDrift] BOOST GRANTED timer=" + momentum$kDriftTimer);
                         engineSpeed += cfg.kDriftBoost;
+                        boost(0.23f, 9);
                     }
                     momentum$kDriftActive = false;
                     momentum$kDriftTimer  = 0;
@@ -352,6 +369,195 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         );
     }
 
+    // ── N-drift ───────────────────────────────────────────────────────────────
+
+    /**
+     * N-key brake-then-drift — runs at HEAD of movementTick.
+     *
+     * Phase 1 (N held, not yet armed):
+     *   Apply brakeDecay every tick. Increment nBrakeTimer.
+     *   Once nBrakeTimer >= nDriftBrakeTicks AND drift conditions are met,
+     *   trigger drift identical to J-drift rising edge and mark nDriftArmed.
+     *
+     * Phase 2 (N held, armed — drift active):
+     *   Continue applying brakeDecay every tick.
+     *   If drift was cancelled externally (too slow, via J-drift's hSpeed check),
+     *   clear the armed flag so the next N press starts fresh.
+     *
+     * N released (armed):
+     *   End drift and grant turbo boost — same as J-drift falling edge.
+     *
+     * N released (not armed):
+     *   Just reset the timer; no-op.
+     *
+     * Particles and turboCharge increment are handled automatically by J-drift's
+     * driftingTick inject (which fires whenever drifting == true, regardless of
+     * which key triggered the drift).
+     */
+    @Inject(method = "movementTick", at = @At("HEAD"))
+    private void momentum$nDriftTick(CallbackInfo ci) {
+        boolean nHeld  = MomentumDriftState.nDriftKeyHeld;
+        MomentumConfig cfg = MomentumConfig.get();
+        boolean mcOnGnd = ((Entity)(Object)this).isOnGround();
+
+        if (nHeld) {
+            // Apply brakeDecay every tick N is held (both phases)
+            engineSpeed = Math.max(engineSpeed - cfg.brakeDecay, -0.25f);
+
+            System.out.println("[Momentum-NDrift] N held | armed=" + momentum$nDriftArmed
+                + " timer=" + momentum$nBrakeTimer + "/" + cfg.nDriftBrakeTicks
+                + " steer=" + steering + " hSpd=" + hSpeed
+                + " onGnd=" + mcOnGnd + " drifting=" + drifting
+                + " engSpd=" + engineSpeed);
+
+            if (!momentum$nDriftArmed) {
+                // Phase 1: waiting for brake timer
+                momentum$nBrakeTimer++;
+                boolean canDrift = steering != 0 && !drifting && hSpeed > 0.4f && mcOnGnd;
+                if (momentum$nBrakeTimer >= cfg.nDriftBrakeTicks && canDrift) {
+                    setDrifting(true);
+                    driftDir = steering > 0 ? 1 : -1;
+                    engineSpeed -= 0.028f * engineSpeed;
+                    momentum$nDriftArmed = true;
+                    System.out.println("[Momentum-NDrift] DRIFT STARTED dir=" + driftDir
+                        + " engSpd=" + engineSpeed);
+                } else if (momentum$nBrakeTimer >= cfg.nDriftBrakeTicks) {
+                    System.out.println("[Momentum-NDrift] TIMER MET but conditions not met — "
+                        + "steer!=0:" + (steering != 0)
+                        + " hSpd>0.4:" + (hSpeed > 0.4f)
+                        + " onGnd:" + mcOnGnd
+                        + " drifting:" + drifting);
+                }
+            } else {
+                // Phase 2: drift is (or was) active
+                if (!drifting) {
+                    // Drift was cancelled externally (too slow) — reset for next press
+                    System.out.println("[Momentum-NDrift] DRIFT CANCELLED externally — resetting");
+                    momentum$nDriftArmed = false;
+                    momentum$nBrakeTimer = 0;
+                }
+            }
+        } else {
+            // N released
+            if (momentum$nDriftArmed && drifting) {
+                System.out.println("[Momentum-NDrift] FALLING EDGE — consuming turboCharge=" + turboCharge);
+                setDrifting(false);
+                consumeTurboCharge();
+            }
+            momentum$nDriftArmed = false;
+            momentum$nBrakeTimer = 0;
+        }
+    }
+
+    // ── M-drift ───────────────────────────────────────────────────────────────
+
+    /**
+     * M-key combined drift/brake — state machine, runs at HEAD of movementTick.
+     *
+     * M held + steering≠0 → behaves exactly like K-drift (slip angle arcade drift).
+     * M held + steering=0 → braking is applied in momentum$applyMBrake (RETURN inject).
+     *
+     * Once a drift starts it is maintained regardless of steering, until M is released
+     * or speed drops below threshold — matching K-drift behaviour.
+     */
+    @Inject(method = "movementTick", at = @At("HEAD"))
+    private void momentum$mDriftStateMachine(CallbackInfo ci) {
+        boolean mHeld    = MomentumDriftState.mKeyHeld;
+        boolean prevMHeld = momentum$prevMKeyHeld;
+        MomentumConfig cfg = MomentumConfig.get();
+        boolean mMcOnGnd = ((Entity)(Object)this).isOnGround();
+
+        if (mHeld) {
+            System.out.println("[Momentum-MDrift] M held | mActive=" + momentum$mDriftActive
+                + " prevM=" + prevMHeld
+                + " steer=" + steering + " hSpd=" + hSpeed
+                + " onGnd=" + mMcOnGnd + " jDrifting=" + drifting);
+        }
+
+        if (!momentum$mDriftActive) {
+            if (!prevMHeld && mHeld) {
+                if (!drifting && steering != 0 && hSpeed > 0.4f && mMcOnGnd) {
+                    momentum$mDriftActive = true;
+                    momentum$mDriftDir    = steering > 0 ? 1 : -1;
+                    momentum$mDriftTimer  = 0;
+                    momentum$mDriftOffset = momentum$mDriftDir * cfg.kDriftSlipAngle;
+                    System.out.println("[Momentum-MDrift] DRIFT STARTED dir=" + momentum$mDriftDir
+                        + " offset=" + momentum$mDriftOffset);
+                } else if (steering == 0) {
+                    System.out.println("[Momentum-MDrift] RISING EDGE steer=0 → brake mode");
+                } else {
+                    System.out.println("[Momentum-MDrift] RISING EDGE conditions not met — "
+                        + "drifting=" + drifting
+                        + " steer!=0:" + (steering != 0)
+                        + " hSpd>0.4:" + (hSpeed > 0.4f)
+                        + " onGnd:" + mMcOnGnd);
+                }
+            }
+        } else {
+            if (mMcOnGnd) createDriftParticles();
+
+            if (mHeld) {
+                momentum$mDriftTimer++;
+                float target = momentum$mDriftDir * cfg.kDriftSlipAngle;
+                momentum$mDriftOffset = AUtils.shift(momentum$mDriftOffset, 4f, target);
+                if (hSpeed < 0.3f) {
+                    System.out.println("[Momentum-MDrift] CANCELLED (too slow, hSpd=" + hSpeed + ")");
+                    momentum$mDriftActive = false;
+                    momentum$mDriftTimer  = 0;
+                    momentum$mDriftOffset = 0f;
+                }
+            } else {
+                // M released: fade slip angle back to zero, grant boost if sustained
+                momentum$mDriftOffset = AUtils.zero(momentum$mDriftOffset, cfg.kDriftSlipDecay);
+                if (Math.abs(momentum$mDriftOffset) < 0.5f) {
+                    if (momentum$mDriftTimer >= cfg.kDriftMinTicks) {
+                        System.out.println("[Momentum-MDrift] BOOST GRANTED timer=" + momentum$mDriftTimer);
+                        engineSpeed += cfg.kDriftBoost;
+                        boost(0.23f, 9);
+                    }
+                    momentum$mDriftActive = false;
+                    momentum$mDriftTimer  = 0;
+                    momentum$mDriftOffset = 0f;
+                }
+            }
+        }
+        momentum$prevMKeyHeld = mHeld;
+    }
+
+    /**
+     * Applies the M-drift slip angle by rotating the velocity vector.
+     * Identical to K-drift slip, just using M-drift state.
+     */
+    @Inject(method = "movementTick", at = @At("RETURN"))
+    private void momentum$applyMDriftSlip(CallbackInfo ci) {
+        if (!momentum$mDriftActive || Math.abs(momentum$mDriftOffset) < 0.01f) return;
+        Entity self = (Entity)(Object)this;
+        Vec3d mov = self.getVelocity();
+        double rad = Math.toRadians(momentum$mDriftOffset);
+        double cos = Math.cos(rad);
+        double sin = Math.sin(rad);
+        self.setVelocity(
+            mov.x * cos - mov.z * sin,
+            mov.y,
+            mov.x * sin + mov.z * cos
+        );
+    }
+
+    /**
+     * Applies braking when M is held and no drift is active (steering was 0 on press).
+     * Skipped if mDriftActive or any other drift is running.
+     */
+    @Inject(method = "movementTick", at = @At("RETURN"))
+    private void momentum$applyMBrake(CallbackInfo ci) {
+        if (!MomentumDriftState.mKeyHeld) return;
+        if (momentum$mDriftActive) return;
+        if (drifting) return;
+        float decay = MomentumConfig.get().brakeDecay;
+        engineSpeed = Math.max(engineSpeed - decay, -0.25f);
+        System.out.println("[Momentum-MBrake] braking | engSpd=" + engineSpeed
+            + " hSpd=" + hSpeed + " steer=" + steering);
+    }
+
     // ── Brake ────────────────────────────────────────────────────────────────
 
     /**
@@ -381,6 +587,9 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         if (drifting) return;  // braking reduces hSpeed which would cancel the drift
         float decay = MomentumConfig.get().brakeDecay;
         engineSpeed = Math.max(engineSpeed - decay, -0.25f);
+        System.out.println("[Momentum-Brake] Space braking | engSpd=" + engineSpeed
+            + " hSpd=" + hSpeed + " steer=" + steering
+            + " drifting=" + drifting);
     }
 
     // ── Debug accessors (SteeringDebugAccessor) ───────────────────────────────
@@ -398,4 +607,6 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Unique @Override public boolean momentum$isOnGround()          { return ((net.minecraft.entity.Entity)(Object)this).isOnGround(); }
     @Unique @Override public boolean momentum$isKDriftActive()      { return momentum$kDriftActive; }
     @Unique @Override public float   momentum$getKDriftOffset()     { return momentum$kDriftOffset; }
+    @Unique @Override public boolean momentum$isMDriftActive()      { return momentum$mDriftActive; }
+    @Unique @Override public float   momentum$getMDriftOffset()     { return momentum$mDriftOffset; }
 }

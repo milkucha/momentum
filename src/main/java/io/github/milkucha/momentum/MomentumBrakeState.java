@@ -12,4 +12,8 @@ package io.github.milkucha.momentum;
  */
 public class MomentumBrakeState {
     public static volatile boolean brakeHeld = false;
+
+    // Client-side FOV offset for brake zoom effect. Written by MomentumClient each
+    // tick, read by GameRendererMixin. Always 0 on a dedicated server.
+    public static float brakeZoomOffset = 0f;
 }

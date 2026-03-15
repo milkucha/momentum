@@ -7,6 +7,8 @@ import io.github.milkucha.momentum.hud.MomentumHud;
 import io.github.milkucha.momentum.sound.BrakingSkidSound;
 import io.github.milkucha.momentum.sound.JDriftSkidSound;
 import io.github.milkucha.momentum.sound.KDriftSkidSound;
+import io.github.milkucha.momentum.sound.MDriftSkidSound;
+import io.github.milkucha.momentum.sound.NDriftSkidSound;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -18,9 +20,12 @@ import org.lwjgl.glfw.GLFW;
 
 public class MomentumClient implements ClientModInitializer {
 
-    private boolean prevBrakeHeld    = false;
-    private boolean prevJDriftActive = false;
-    private boolean prevKDriftActive = false;
+    private boolean prevBrakeHeld      = false;
+    private boolean prevJDriftActive   = false;
+    private boolean prevKDriftActive   = false;
+    private boolean prevNDriftKeyHeld  = false;
+    private boolean prevMDriftActive   = false;
+    private float   cameraDriftYawOffset = 0f;
 
     @Override
     public void onInitializeClient() {
@@ -47,10 +52,16 @@ public class MomentumClient implements ClientModInitializer {
                     GLFW.glfwGetKey(win, GLFW.GLFW_KEY_J) == GLFW.GLFW_PRESS;
                 MomentumDriftState.kDriftKeyHeld =
                     GLFW.glfwGetKey(win, GLFW.GLFW_KEY_K) == GLFW.GLFW_PRESS;
+                MomentumDriftState.nDriftKeyHeld =
+                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_N) == GLFW.GLFW_PRESS;
+                MomentumDriftState.mKeyHeld =
+                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_M) == GLFW.GLFW_PRESS;
             } else {
                 MomentumBrakeState.brakeHeld = false;
                 MomentumDriftState.driftKeyHeld = false;
                 MomentumDriftState.kDriftKeyHeld = false;
+                MomentumDriftState.nDriftKeyHeld = false;
+                MomentumDriftState.mKeyHeld      = false;
             }
         });
 
@@ -62,18 +73,37 @@ public class MomentumClient implements ClientModInitializer {
 
             if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity auto) {
                 MomentumConfig cfg = MomentumConfig.get();
+                SteeringDebugAccessor accessor = (SteeringDebugAccessor) auto;
+
+                // Lerp camera yaw offset toward (kDriftOffset + mDriftOffset) * scale.
+                // Use a slow lerp while either drift is active (dramatic swing in) and a fast
+                // lerp on exit (snappy return to car heading).
+                float combinedDriftOffset = accessor.momentum$getKDriftOffset()
+                                          + accessor.momentum$getMDriftOffset();
+                float targetCameraOffset = combinedDriftOffset * cfg.kDriftCameraScale;
+                boolean kActive = accessor.momentum$isKDriftActive() || accessor.momentum$isMDriftActive();
+                float cameraLerp = kActive ? cfg.kDriftCameraLerpIn : cfg.kDriftCameraLerpOut;
+                cameraDriftYawOffset += (targetCameraOffset - cameraDriftYawOffset) * cameraLerp;
+
                 if (cfg.lockCamera) {
-                    client.player.setYaw(auto.getYaw());
+                    client.player.setYaw(auto.getYaw() + cameraDriftYawOffset);
                     client.player.setPitch(cfg.lockCameraPitch);
                 }
-
-                SteeringDebugAccessor accessor = (SteeringDebugAccessor) auto;
 
                 boolean brakeHeld = MomentumBrakeState.brakeHeld;
                 if (brakeHeld && !prevBrakeHeld) {
                     client.getSoundManager().play(new BrakingSkidSound(auto));
                 }
                 prevBrakeHeld = brakeHeld;
+
+                // Brake zoom: lerp FOV offset toward brakeZoomFov whenever any key is braking.
+                // N always brakes while held; M brakes while held and not in a slip-angle drift.
+                boolean anyBraking = brakeHeld
+                    || MomentumDriftState.nDriftKeyHeld
+                    || (MomentumDriftState.mKeyHeld && !accessor.momentum$isMDriftActive());
+                float brakeZoomTarget = anyBraking ? cfg.brakeZoomFov : 0f;
+                MomentumBrakeState.brakeZoomOffset +=
+                    (brakeZoomTarget - MomentumBrakeState.brakeZoomOffset) * cfg.brakeZoomLerp;
 
                 boolean jDriftActive = accessor.momentum$isDrifting();
                 if (jDriftActive && !prevJDriftActive) {
@@ -86,10 +116,26 @@ public class MomentumClient implements ClientModInitializer {
                     client.getSoundManager().play(new KDriftSkidSound(auto));
                 }
                 prevKDriftActive = kDriftActive;
+
+                boolean nDriftKeyHeld = MomentumDriftState.nDriftKeyHeld;
+                if (nDriftKeyHeld && !prevNDriftKeyHeld) {
+                    client.getSoundManager().play(new NDriftSkidSound(auto));
+                }
+                prevNDriftKeyHeld = nDriftKeyHeld;
+
+                boolean mDriftActive = accessor.momentum$isMDriftActive();
+                if (mDriftActive && !prevMDriftActive) {
+                    client.getSoundManager().play(new MDriftSkidSound(auto));
+                }
+                prevMDriftActive = mDriftActive;
             } else {
-                prevBrakeHeld    = false;
-                prevJDriftActive = false;
-                prevKDriftActive = false;
+                prevBrakeHeld        = false;
+                prevJDriftActive     = false;
+                prevKDriftActive     = false;
+                prevNDriftKeyHeld    = false;
+                prevMDriftActive     = false;
+                cameraDriftYawOffset        = 0f;
+                MomentumBrakeState.brakeZoomOffset = 0f;
             }
         });
     }

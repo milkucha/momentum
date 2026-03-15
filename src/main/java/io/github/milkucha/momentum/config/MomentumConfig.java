@@ -143,6 +143,32 @@ public class MomentumConfig {
      */
     public float lockCameraPitch = 10f;
 
+    /**
+     * How many FOV degrees to zoom in when the brake key is first pressed.
+     * The zoom is applied once on the rising edge and held while braking,
+     * then lerps back to 0 on release.
+     *
+     * Positive = zoom in (narrower FOV). Negative = zoom out.
+     * Recommended range: 2 – 10
+     *
+     * Default: 5
+     */
+    public float brakeZoomFov = 5f;
+
+    /**
+     * Lerp factor for the brake zoom FOV offset, applied each tick for both
+     * zoom-in (brake pressed) and zoom-out (brake released).
+     * offset += (target - offset) * brakeZoomLerp
+     *
+     * Lower = smoother transition. Higher = snappier.
+     * 1.0 = instant.
+     *
+     * Recommended range: 0.05 – 0.5
+     *   0.1  → smooth (~16 ticks)  ← default
+     *   0.3  → snappy (~5 ticks)
+     */
+    public float brakeZoomLerp = 0.1f;
+
     // ── HUD ──────────────────────────────────────────────────────────────────
 
     /**
@@ -267,6 +293,59 @@ public class MomentumConfig {
      * Default: 15 (~0.75 s)
      */
     public int kDriftMinTicks = 15;
+
+    /**
+     * How much of the K-drift slip angle is translated into a camera yaw offset.
+     * The camera is shifted by (kDriftOffset * kDriftCameraScale) degrees from the car heading,
+     * revealing the car's angled body mid-drift. Smoothly lerps in and out.
+     *
+     * 0.0 = no camera shift (pure locked camera)
+     * 0.5 = camera shifts half the slip angle (e.g. 11° at full 22° drift)  ← default
+     * 1.0 = camera shifts by the full slip angle
+     * Negative values flip the direction if the shift feels backwards.
+     *
+     * Recommended range: 0.3 – 0.8
+     */
+    public float kDriftCameraScale = 0.5f;
+
+    /**
+     * Lerp factor when the camera yaw offset is moving TOWARD the drift angle (K pressed).
+     * Applied each tick: offset += (target - offset) * kDriftCameraLerpIn
+     * Keep this low for a slow, dramatic camera swing into the drift.
+     *
+     * Lower = slower / more lag. Higher = snappier.
+     * 1.0 = instant.
+     *
+     * Recommended range: 0.03 – 0.2
+     *   0.05 → very slow (~40 ticks to settle)  ← default
+     *   0.15 → moderate (~11 ticks)
+     */
+    public float kDriftCameraLerpIn = 0.05f;
+
+    /**
+     * Lerp factor when the camera yaw offset is snapping BACK to zero (K released).
+     * Keep this high for a quick, snappy return to the car heading on drift exit.
+     *
+     * Lower = slower return. Higher = snappier return.
+     * 1.0 = instant.
+     *
+     * Recommended range: 0.1 – 0.6
+     *   0.3  → snappy (~5 ticks)  ← default
+     *   0.15 → moderate (~11 ticks)
+     */
+    public float kDriftCameraLerpOut = 0.3f;
+
+    // ── N-Drift ───────────────────────────────────────────────────────────────
+
+    /**
+     * Number of ticks the N key must be held (braking) before the drift is triggered.
+     * While this timer is counting, brakeDecay is applied to engineSpeed each tick.
+     * Once the threshold is reached and steering conditions are met, the drift starts
+     * (identical to J-drift) and braking continues throughout.
+     *
+     * Default: 15 (~0.75 s)
+     */
+    public int nDriftBrakeTicks = 15;
 
     // ── Serialisation ─────────────────────────────────────────────────────────
 

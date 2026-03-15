@@ -21,4 +21,10 @@ public class MomentumDriftState {
     // prevKDriftKeyHeld is intentionally NOT here — edge tracking is done via a
     // @Unique instance field on each AutomobileEntity, matching the J-key pattern.
     public static volatile boolean kDriftKeyHeld = false;
+
+    // N key — brake-then-drift (same drift logic as J, gated behind a brake phase)
+    public static volatile boolean nDriftKeyHeld = false;
+
+    // M key — combined: brake when steering=0, K-drift when steering≠0
+    public static volatile boolean mKeyHeld = false;
 }

@@ -9,7 +9,8 @@
   "client": [
     "AutomobileHudMixin",
     "AutomobileBrakeMixin",
-    "CameraLockMixin"
+    "CameraLockMixin",
+    "GameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

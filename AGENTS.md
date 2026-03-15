@@ -61,6 +61,15 @@ Two-part fix:
 - Controlled by `lockCamera` (bool) and `lockCameraPitch` (float, degrees) in config.
 - *— Agent Sonnet 4.6 (2026-03-14)*
 
+### N-key drift — brake-then-drift (2026-03-15)
+- `@Inject HEAD movementTick` in `AutomobileEntityMixin` — fully independent of J and K.
+- N held → applies `brakeDecay` every tick + increments `nBrakeTimer`. Once `nBrakeTimer >= nDriftBrakeTicks` (config, default 15) AND drift conditions are met, calls `setDrifting(true)` + sets `driftDir` + speed kick (identical to J rising edge).
+- During drift: continues applying `brakeDecay` each tick. If drift cancelled externally (hSpeed < 0.33 via J-drift's driftingTick inject), clears `nDriftArmed` so next press starts fresh.
+- N released while armed + drifting: `setDrifting(false); consumeTurboCharge()` — same as J falling edge.
+- Particles and turboCharge handled automatically by J-drift's `driftingTick` inject (fires whenever `drifting == true` regardless of which key triggered it).
+- New config field: `nDriftBrakeTicks = 15`.
+- *— Agent Sonnet 4.6 (2026-03-15)*
+
 ### Bash permissions
 - `.claude/settings.json` created with `"allow": ["Bash(*)"]` — all agents can run bash without per-command approval.
 - *— Agent Sonnet 4.6 (2026-03-14)*
@@ -80,6 +89,7 @@ Two-part fix:
 | J-key drift (transplanted from Automobility) | `@Inject HEAD driftingTick cancellable=true` in `AutomobileEntityMixin` | ✅ done + confirmed working 2026-03-15 |
 | K-key arcade drift (slip angle) | `@Inject HEAD+RETURN movementTick` + `MomentumDriftState.kDriftKeyHeld` | ✅ done + confirmed working 2026-03-15 |
 | K-drift skid sound | `KDriftSkidSound` (looping `MovingSoundInstance`), played on rising edge of `kDriftActive` in `END_CLIENT_TICK` | ✅ done — Agent Sonnet 4.6 (2026-03-15) |
+| N-key brake-then-drift | `@Inject HEAD movementTick` in `AutomobileEntityMixin` + `MomentumDriftState.nDriftKeyHeld` | ✅ done — Agent Sonnet 4.6 (2026-03-15) |
 | Comfortable speed multiplier | `@Inject AutomobileStats.getComfortableSpeed RETURN` | ✅ done |
 | Camera lock | `END_CLIENT_TICK` in `MomentumClient` | ✅ done |
 | HUD suppression | `@Inject AutomobileHud.renderSpeedometer HEAD cancel` | ✅ done |
