@@ -1,7 +1,7 @@
 package io.github.milkucha.momentum.sound;
 
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
-import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
+import io.github.milkucha.momentum.MomentumDriftState;
 import net.minecraft.client.sound.MovingSoundInstance;
 import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundCategory;
@@ -10,8 +10,8 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.random.Random;
 
 /**
- * Looping skid sound that plays while M-drift is active.
- * Stops itself when mDriftActive becomes false or the entity is removed.
+ * Looping skid sound that plays while the M key is held, regardless of drift state.
+ * Stops itself when the M key is released or the entity is removed.
  *
  * Uses Automobility's existing skid sound event (automobility:entity.automobile.skid).
  * Pitch scales with hSpeed so the screech naturally lowers as the car slows.
@@ -22,12 +22,10 @@ public class MDriftSkidSound extends MovingSoundInstance {
             new Identifier("automobility", "entity.automobile.skid");
 
     private final AutomobileEntity automobile;
-    private final SteeringDebugAccessor accessor;
 
     public MDriftSkidSound(AutomobileEntity automobile) {
         super(resolveSound(), SoundCategory.AMBIENT, Random.create());
         this.automobile = automobile;
-        this.accessor = (SteeringDebugAccessor) automobile;
         this.repeat = true;
         this.repeatDelay = 0;
         this.x = automobile.getX();
@@ -49,7 +47,7 @@ public class MDriftSkidSound extends MovingSoundInstance {
             return;
         }
 
-        if (!accessor.momentum$isMDriftActive()) {
+        if (!MomentumDriftState.mKeyHeld) {
             setDone();
             return;
         }

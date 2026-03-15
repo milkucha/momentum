@@ -91,20 +91,20 @@ public class MomentumHud {
 
         MomentumConfig cfg = MomentumConfig.get();
 
-        int panelX = cfg.hudX >= 0
-                ? cfg.hudX
-                : screenW - FRAME_W - cfg.hudMarginRight;
-        int panelY = cfg.hudY >= 0
-                ? cfg.hudY
-                : screenH - FRAME_H - cfg.hudMarginBottom;
+        int panelX = cfg.hud.x >= 0
+                ? cfg.hud.x
+                : screenW - FRAME_W - cfg.hud.marginRight;
+        int panelY = cfg.hud.y >= 0
+                ? cfg.hud.y
+                : screenH - FRAME_H - cfg.hud.marginBottom;
 
         double speedKmh = auto.getEffectiveSpeed() * TO_KMH;
 
         // ── Bar — drawn first (behind frame) ──────────────────────────────────
         int barFrame = Math.min((int)(speedKmh / 20.0), TEX_BAR.length - 1);
         drawScaled(graphics, TEX_BAR[barFrame],
-                panelX + cfg.hudBarOffsetX, panelY + cfg.hudBarOffsetY,
-                BAR_W, BAR_H, cfg.hudBarScale);
+                panelX + cfg.hud.barOffsetX, panelY + cfg.hud.barOffsetY,
+                BAR_W, BAR_H, cfg.hud.barScale);
 
         // ── Animated object — drawn second (behind frame) ─────────────────────
         int animFrame = 0;
@@ -112,8 +112,8 @@ public class MomentumHud {
             animFrame = (int)((client.world.getTime() / 2L) % TEX_ANIM.length);
         }
         drawScaled(graphics, TEX_ANIM[animFrame],
-                panelX + cfg.hudAnimOffsetX, panelY + cfg.hudAnimOffsetY,
-                ANIM_W, ANIM_H, cfg.hudAnimScale);
+                panelX + cfg.hud.animOffsetX, panelY + cfg.hud.animOffsetY,
+                ANIM_W, ANIM_H, cfg.hud.animScale);
 
         // ── Frame — drawn on top ───────────────────────────────────────────────
         graphics.drawTexture(TEX_FRAME,
@@ -124,14 +124,14 @@ public class MomentumHud {
         String unitStr  = " km/h";
         int speedW = client.textRenderer.getWidth(speedStr);
         graphics.drawText(client.textRenderer, speedStr,
-                panelX + cfg.hudSpeedTextOffsetX, panelY + cfg.hudSpeedTextOffsetY,
+                panelX + cfg.hud.speedTextOffsetX, panelY + cfg.hud.speedTextOffsetY,
                 COL_TEXT, true);
         graphics.drawText(client.textRenderer, unitStr,
-                panelX + cfg.hudSpeedTextOffsetX + speedW, panelY + cfg.hudSpeedTextOffsetY,
+                panelX + cfg.hud.speedTextOffsetX + speedW, panelY + cfg.hud.speedTextOffsetY,
                 COL_UNIT, true);
 
         // ── Debug overlay — separate panel, upper-right by default ────────────
-        if (cfg.debugHud && auto instanceof SteeringDebugAccessor dbg) {
+        if (cfg.hud.debug && auto instanceof SteeringDebugAccessor dbg) {
             boolean jHeld   = MomentumDriftState.driftKeyHeld;
             boolean drifting = dbg.momentum$isDrifting();
             boolean onGround = dbg.momentum$isOnGround();
@@ -158,10 +158,10 @@ public class MomentumHud {
 
             int dbgW = 120;
             int dbgH = 92;
-            int dbgX = cfg.debugHudX >= 0
-                    ? cfg.debugHudX
-                    : screenW - dbgW - cfg.debugHudMarginRight;
-            int dbgY = cfg.debugHudY;
+            int dbgX = cfg.hud.debugX >= 0
+                    ? cfg.hud.debugX
+                    : screenW - dbgW - cfg.hud.debugMarginRight;
+            int dbgY = cfg.hud.debugY;
 
             drawPanel(graphics, dbgX, dbgY, dbgW, dbgH);
             graphics.drawText(client.textRenderer, line1, dbgX + 6, dbgY + 4,  0xFFFFFF55, true);

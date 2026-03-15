@@ -80,14 +80,14 @@ public class MomentumClient implements ClientModInitializer {
                 // lerp on exit (snappy return to car heading).
                 float combinedDriftOffset = accessor.momentum$getKDriftOffset()
                                           + accessor.momentum$getMDriftOffset();
-                float targetCameraOffset = combinedDriftOffset * cfg.kDriftCameraScale;
+                float targetCameraOffset = combinedDriftOffset * cfg.camera.driftScale;
                 boolean kActive = accessor.momentum$isKDriftActive() || accessor.momentum$isMDriftActive();
-                float cameraLerp = kActive ? cfg.kDriftCameraLerpIn : cfg.kDriftCameraLerpOut;
+                float cameraLerp = kActive ? cfg.camera.driftLerpIn : cfg.camera.driftLerpOut;
                 cameraDriftYawOffset += (targetCameraOffset - cameraDriftYawOffset) * cameraLerp;
 
-                if (cfg.lockCamera) {
+                if (cfg.camera.lock) {
                     client.player.setYaw(auto.getYaw() + cameraDriftYawOffset);
-                    client.player.setPitch(cfg.lockCameraPitch);
+                    client.player.setPitch(cfg.camera.pitch);
                 }
 
                 boolean brakeHeld = MomentumBrakeState.brakeHeld;
@@ -101,9 +101,9 @@ public class MomentumClient implements ClientModInitializer {
                 boolean anyBraking = brakeHeld
                     || MomentumDriftState.nDriftKeyHeld
                     || (MomentumDriftState.mKeyHeld && !accessor.momentum$isMDriftActive());
-                float brakeZoomTarget = anyBraking ? cfg.brakeZoomFov : 0f;
+                float brakeZoomTarget = anyBraking ? cfg.camera.brakeZoomFov : 0f;
                 MomentumBrakeState.brakeZoomOffset +=
-                    (brakeZoomTarget - MomentumBrakeState.brakeZoomOffset) * cfg.brakeZoomLerp;
+                    (brakeZoomTarget - MomentumBrakeState.brakeZoomOffset) * cfg.camera.brakeZoomLerp;
 
                 boolean jDriftActive = accessor.momentum$isDrifting();
                 if (jDriftActive && !prevJDriftActive) {
@@ -123,11 +123,11 @@ public class MomentumClient implements ClientModInitializer {
                 }
                 prevNDriftKeyHeld = nDriftKeyHeld;
 
-                boolean mDriftActive = accessor.momentum$isMDriftActive();
-                if (mDriftActive && !prevMDriftActive) {
+                boolean mKeyHeld = MomentumDriftState.mKeyHeld;
+                if (mKeyHeld && !prevMDriftActive) {
                     client.getSoundManager().play(new MDriftSkidSound(auto));
                 }
-                prevMDriftActive = mDriftActive;
+                prevMDriftActive = mKeyHeld;
             } else {
                 prevBrakeHeld        = false;
                 prevJDriftActive     = false;

@@ -101,12 +101,13 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
 
     // ── M-drift state ─────────────────────────────────────────────────────────
     // M key: K-drift when steering≠0, brake when steering=0.
-    @Unique private boolean momentum$prevMKeyHeld = false;
-    @Unique private boolean momentum$mDriftActive = false;
-    @Unique private float   momentum$mDriftOffset = 0f;
-    @Unique private int     momentum$mDriftTimer  = 0;   // ticks drift has been active
-    @Unique private int     momentum$mDriftDir    = 0;
-    @Unique private int     momentum$mHeldTimer   = 0;   // ticks M held without drift active
+    @Unique private boolean momentum$prevMKeyHeld   = false;
+    @Unique private boolean momentum$mDriftActive   = false;
+    @Unique private float   momentum$mDriftOffset   = 0f;
+    @Unique private int     momentum$mDriftTimer    = 0;   // ticks drift has been active
+    @Unique private int     momentum$mDriftDir      = 0;
+    @Unique private int     momentum$mHeldTimer     = 0;   // ticks M held without drift active
+    @Unique private float   momentum$mSteerAccum    = 0f;  // 0..1 steering time accumulator
 
     // ── Coasting fix ─────────────────────────────────────────────────────────
 
@@ -120,7 +121,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     )
     private float momentum$replaceCoastDecay(float value, float rate) {
         if (MomentumBrakeState.brakeHeld) return value;  // brake inject handles decel this tick
-        return AUtils.zero(value, MomentumConfig.get().coastDecay);
+        return AUtils.zero(value, MomentumConfig.get().movement.coastDecay);
     }
 
     // ── Acceleration scale ────────────────────────────────────────────────────
@@ -134,14 +135,13 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         index = 0
     )
     private float momentum$scaleAcceleration(float speed) {
-        float scale = MomentumConfig.get().accelerationScale;
-        return speed / scale;
+        return speed / MomentumConfig.get().movement.accelerationScale;
     }
 
     // ── Steering ramp rate ────────────────────────────────────────────────────
 
     /**
-     * Replaces the 0.42f constant in steeringTick() with steeringRampRate from config.
+     * Replaces the 0.42f constant in steeringTick() with steering.rampRate from config.
      * This constant controls both how fast steering builds toward full lock and how
      * fast it returns to centre. Skipped during a drift to keep drift steering responsive.
      */
@@ -151,7 +151,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     )
     private float momentum$steeringRampRate(float original) {
         if (drifting) return original;
-        return MomentumConfig.get().steeringRampRate;
+        return MomentumConfig.get().steering.rampRate;
     }
 
     // ── Speed-based understeer ────────────────────────────────────────────────
@@ -183,9 +183,9 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     )
     private float momentum$applyUndersteer(float target) {
         if (drifting || momentum$kDriftActive || momentum$mDriftActive) return target;
-        MomentumConfig cfg = MomentumConfig.get();
-        float speedCurved = (float) Math.pow(Math.abs(hSpeed), cfg.steeringUndersteerCurve);
-        return target / (1f + cfg.steeringUndersteer * speedCurved);
+        MomentumConfig.Steering s = MomentumConfig.get().steering;
+        float speedCurved = (float) Math.pow(Math.abs(hSpeed), s.understeerCurve);
+        return target / (1f + s.understeer * speedCurved);
     }
 
     // ── J-key drift (transplanted from Automobility) ─────────────────────────
@@ -279,7 +279,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     private void momentum$kDriftStateMachine(CallbackInfo ci) {
         boolean kHeld     = MomentumDriftState.kDriftKeyHeld;
         boolean prevKHeld = momentum$prevKDriftKeyHeld;
-        MomentumConfig cfg = MomentumConfig.get();
+        MomentumConfig.KDrift cfg = MomentumConfig.get().kDrift;
 
         boolean kMcOnGnd = ((net.minecraft.entity.Entity)(Object)this).isOnGround();
 
@@ -303,7 +303,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     momentum$kDriftActive = true;
                     momentum$kDriftDir    = steering > 0 ? 1 : -1;
                     momentum$kDriftTimer  = 0;
-                    momentum$kDriftOffset = momentum$kDriftDir * cfg.kDriftSlipAngle;
+                    momentum$kDriftOffset = momentum$kDriftDir * cfg.slipAngle;
                     System.out.println("[Momentum-KDrift] DRIFT STARTED dir=" + momentum$kDriftDir
                         + " offset=" + momentum$kDriftOffset);
                 } else {
@@ -319,9 +319,11 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
             if (kMcOnGnd) createDriftParticles();
 
             if (kHeld) {
-                // Maintain slip angle while K held
+                // Maintain slip angle while K held.
+                // Use current steering direction so slip angle can be redirected mid-drift.
                 momentum$kDriftTimer++;
-                float target = momentum$kDriftDir * cfg.kDriftSlipAngle;
+                int currentDir = steering > 0 ? 1 : (steering < 0 ? -1 : momentum$kDriftDir);
+                float target = currentDir * cfg.slipAngle;
                 momentum$kDriftOffset = AUtils.shift(momentum$kDriftOffset, 4f, target);
                 // Cancel drift if speed drops too low
                 if (hSpeed < 0.3f) {
@@ -332,14 +334,15 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 }
             } else {
                 // K released: fade slip angle back to zero (speed-adjusted)
-                float kDecay = cfg.kDriftSlipDecaySpeedRef > 0
-                    ? cfg.kDriftSlipDecay * cfg.kDriftSlipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
-                    : cfg.kDriftSlipDecay;
+                MomentumConfig.KDrift kCfg = MomentumConfig.get().kDrift;
+                float kDecay = kCfg.slipDecaySpeedRef > 0
+                    ? kCfg.slipDecay * kCfg.slipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
+                    : kCfg.slipDecay;
                 momentum$kDriftOffset = AUtils.zero(momentum$kDriftOffset, kDecay);
                 if (Math.abs(momentum$kDriftOffset) < 0.5f) {
-                    if (momentum$kDriftTimer >= cfg.kDriftMinTicks) {
+                    if (kCfg.boostEnabled && momentum$kDriftTimer >= kCfg.minTicks) {
                         System.out.println("[Momentum-KDrift] BOOST GRANTED timer=" + momentum$kDriftTimer);
-                        engineSpeed += cfg.kDriftBoost;
+                        engineSpeed += kCfg.boost;
                         boost(0.23f, 9);
                     }
                     momentum$kDriftActive = false;
@@ -406,10 +409,10 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
 
         if (nHeld) {
             // Apply brakeDecay every tick N is held (both phases)
-            engineSpeed = Math.max(engineSpeed - cfg.brakeDecay, -0.25f);
+            engineSpeed = Math.max(engineSpeed - cfg.movement.brakeDecay, -0.25f);
 
             System.out.println("[Momentum-NDrift] N held | armed=" + momentum$nDriftArmed
-                + " timer=" + momentum$nBrakeTimer + "/" + cfg.nDriftBrakeTicks
+                + " timer=" + momentum$nBrakeTimer + "/" + cfg.nDrift.brakeTicks
                 + " steer=" + steering + " hSpd=" + hSpeed
                 + " onGnd=" + mcOnGnd + " drifting=" + drifting
                 + " engSpd=" + engineSpeed);
@@ -418,14 +421,14 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 // Phase 1: waiting for brake timer
                 momentum$nBrakeTimer++;
                 boolean canDrift = steering != 0 && !drifting && hSpeed > 0.4f && mcOnGnd;
-                if (momentum$nBrakeTimer >= cfg.nDriftBrakeTicks && canDrift) {
+                if (momentum$nBrakeTimer >= cfg.nDrift.brakeTicks && canDrift) {
                     setDrifting(true);
                     driftDir = steering > 0 ? 1 : -1;
                     engineSpeed -= 0.028f * engineSpeed;
                     momentum$nDriftArmed = true;
                     System.out.println("[Momentum-NDrift] DRIFT STARTED dir=" + driftDir
                         + " engSpd=" + engineSpeed);
-                } else if (momentum$nBrakeTimer >= cfg.nDriftBrakeTicks) {
+                } else if (momentum$nBrakeTimer >= cfg.nDrift.brakeTicks) {
                     System.out.println("[Momentum-NDrift] TIMER MET but conditions not met — "
                         + "steer!=0:" + (steering != 0)
                         + " hSpd>0.4:" + (hSpeed > 0.4f)
@@ -468,7 +471,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     private void momentum$mDriftStateMachine(CallbackInfo ci) {
         boolean mHeld    = MomentumDriftState.mKeyHeld;
         boolean prevMHeld = momentum$prevMKeyHeld;
-        MomentumConfig cfg = MomentumConfig.get();
+        MomentumConfig.MDrift cfg = MomentumConfig.get().mDrift;
         boolean mMcOnGnd = ((Entity)(Object)this).isOnGround();
 
         if (mHeld) {
@@ -481,30 +484,30 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         if (!momentum$mDriftActive) {
             if (mHeld) {
                 momentum$mHeldTimer++;
-                float mMinSpd = cfg.mDriftMinSpeedKmh / 72f;
-                if (!drifting && Math.abs(steering) > cfg.mDriftSteerThreshold && hSpeed > mMinSpd && mMcOnGnd
-                        && momentum$mHeldTimer >= cfg.mDriftMinHoldTicks) {
+                float mMinSpd = cfg.minSpeedKmh / 72f;
+                if (!drifting && Math.abs(steering) > cfg.steerThreshold && hSpeed > mMinSpd && mMcOnGnd
+                        && momentum$mHeldTimer >= cfg.minHoldTicks) {
                     // Steering detected and held long enough — start drift in steering direction
                     momentum$mDriftActive = true;
                     momentum$mDriftDir    = steering > 0 ? 1 : -1;
                     momentum$mDriftTimer  = 0;
-                    float initSteerFactor = cfg.mDriftConstantAngle ? 1.0f
-                        : (float) Math.pow(Math.abs(steering), cfg.mDriftSteerSensitivity);
-                    momentum$mDriftOffset = momentum$mDriftDir * cfg.mDriftSlipAngle * initSteerFactor;
+                    float initSteerFactor = cfg.constantAngle ? 1.0f
+                        : (float) Math.pow(Math.abs(steering), cfg.steerSensitivity);
+                    momentum$mDriftOffset = momentum$mDriftDir * cfg.slipAngle * initSteerFactor;
                     momentum$mHeldTimer   = 0;
                     System.out.println("[Momentum-MDrift] DRIFT STARTED dir=" + momentum$mDriftDir
                         + " offset=" + momentum$mDriftOffset
                         + " steer=" + steering + " hSpd=" + hSpeed);
                 } else {
                     // Conditions not yet met — check auto-trigger threshold
-                    int threshold = cfg.mDriftAutoTriggerTicks;
+                    int threshold = cfg.autoTriggerTicks;
                     if (threshold > 0 && momentum$mHeldTimer >= threshold
                             && !drifting && hSpeed > mMinSpd && mMcOnGnd) {
                         int dir = Math.random() > 0.5 ? 1 : -1;
                         momentum$mDriftActive = true;
                         momentum$mDriftDir    = dir;
                         momentum$mDriftTimer  = 0;
-                        momentum$mDriftOffset = dir * cfg.mDriftSlipAngle;
+                        momentum$mDriftOffset = dir * cfg.slipAngle;
                         momentum$mHeldTimer   = 0;
                         System.out.println("[Momentum-MDrift] AUTO-TRIGGER dir=" + dir
                             + " hSpd=" + hSpeed);
@@ -518,31 +521,43 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
 
             if (mHeld) {
                 momentum$mDriftTimer++;
-                float steerFactor = cfg.mDriftConstantAngle ? 1.0f
-                    : (float) Math.pow(Math.abs(steering), cfg.mDriftSteerSensitivity);
-                float target = momentum$mDriftDir * cfg.mDriftSlipAngle * steerFactor;
-                momentum$mDriftOffset = AUtils.shift(momentum$mDriftOffset, cfg.mDriftSlipConvergeRate, target);
+                // Advance or retreat the steering accumulator based on whether player is steering.
+                if (Math.abs(steering) > 0.05f) {
+                    momentum$mSteerAccum = Math.min(1.0f, momentum$mSteerAccum + cfg.steerBuildRate);
+                } else {
+                    momentum$mSteerAccum = Math.max(0.0f, momentum$mSteerAccum - cfg.steerDecayRate);
+                }
+                // Use current steering direction for target — allows redirecting slip mid-drift.
+                // Fall back to locked mDriftDir only when steering is exactly 0.
+                int currentDir = steering > 0 ? 1 : (steering < 0 ? -1 : momentum$mDriftDir);
+                float steerFactor = cfg.constantAngle ? 1.0f
+                    : (float) Math.pow(momentum$mSteerAccum, cfg.steerSensitivity);
+                float target = currentDir * cfg.slipAngle * steerFactor;
+                momentum$mDriftOffset = AUtils.shift(momentum$mDriftOffset, cfg.slipConvergeRate, target);
                 if (hSpeed < 0.3f) {
                     System.out.println("[Momentum-MDrift] CANCELLED (too slow, hSpd=" + hSpeed + ")");
                     momentum$mDriftActive = false;
                     momentum$mDriftTimer  = 0;
                     momentum$mDriftOffset = 0f;
+                    momentum$mSteerAccum  = 0f;
                 }
             } else {
                 // M released: fade slip angle back to zero, grant boost if sustained (speed-adjusted)
-                float mDecay = cfg.kDriftSlipDecaySpeedRef > 0
-                    ? cfg.kDriftSlipDecay * cfg.kDriftSlipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
-                    : cfg.kDriftSlipDecay;
+                MomentumConfig.KDrift kCfg = MomentumConfig.get().kDrift;
+                float mDecay = kCfg.slipDecaySpeedRef > 0
+                    ? kCfg.slipDecay * kCfg.slipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
+                    : kCfg.slipDecay;
                 momentum$mDriftOffset = AUtils.zero(momentum$mDriftOffset, mDecay);
                 if (Math.abs(momentum$mDriftOffset) < 0.5f) {
-                    if (cfg.mDriftBoostEnabled && momentum$mDriftTimer >= cfg.kDriftMinTicks) {
+                    if (cfg.boostEnabled && momentum$mDriftTimer >= kCfg.minTicks) {
                         System.out.println("[Momentum-MDrift] BOOST GRANTED timer=" + momentum$mDriftTimer);
-                        engineSpeed += cfg.kDriftBoost;
+                        engineSpeed += kCfg.boost;
                         boost(0.23f, 9);
                     }
                     momentum$mDriftActive = false;
                     momentum$mDriftTimer  = 0;
                     momentum$mDriftOffset = 0f;
+                    momentum$mSteerAccum  = 0f;
                 }
             }
         }
@@ -577,7 +592,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         if (!MomentumDriftState.mKeyHeld) return;
         if (momentum$mDriftActive) return;
         if (drifting) return;
-        float decay = MomentumConfig.get().brakeDecay;
+        float decay = MomentumConfig.get().movement.brakeDecay;
         engineSpeed = Math.max(engineSpeed - decay, -0.25f);
         System.out.println("[Momentum-MBrake] braking | engSpd=" + engineSpeed
             + " hSpd=" + hSpeed + " steer=" + steering);
@@ -610,7 +625,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     private void momentum$applyBrake(CallbackInfo ci) {
         if (!MomentumBrakeState.brakeHeld) return;
         if (drifting) return;  // braking reduces hSpeed which would cancel the drift
-        float decay = MomentumConfig.get().brakeDecay;
+        float decay = MomentumConfig.get().movement.brakeDecay;
         engineSpeed = Math.max(engineSpeed - decay, -0.25f);
         System.out.println("[Momentum-Brake] Space braking | engSpd=" + engineSpeed
             + " hSpd=" + hSpeed + " steer=" + steering
