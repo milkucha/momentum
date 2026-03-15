@@ -11,9 +11,12 @@ public interface SteeringDebugAccessor {
     float momentum$getAngularSpeed();
     boolean momentum$isDrifting();
     boolean momentum$isHoldingDrift();
-    // Current movement input state (set by Automobility's setInputs each tick)
     boolean momentum$isAccelerating();
     boolean momentum$isBraking();
     boolean momentum$isSteeringLeft();
     boolean momentum$isSteeringRight();
+    int momentum$getTurboCharge();
+    boolean momentum$isOnGround();
+    boolean momentum$isKDriftActive();
+    float   momentum$getKDriftOffset();
 }

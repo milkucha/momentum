@@ -19,11 +19,20 @@ Update the locks table when you start and clear your row when done/committed.
 
 ## Shared decisions
 
-### Space key → brake + drift remapping (current state)
-- Ordinal 1 (`back` param) modifier **removed** — braking no longer goes through Automobility's `braking` flag at all.
-- Braking is handled entirely via `MomentumBrakeState.brakeHeld` (volatile static, polled in `START_CLIENT_TICK` from GLFW). Read by `@Inject RETURN movementTick` in `AutomobileEntityMixin`. Server-safe (stays false on dedicated server).
-- Ordinal 4 (`space` param) in `AutomobileBrakeMixin` conditionally signals `holdingDrift`: true only when already drifting OR (steering != 0 AND hSpeed > 0.4f). This preserves the rising edge for when the player actually steers into a drift. Space maps to BOTH braking and drifting simultaneously.
-- *— Agent Sonnet 4.6 (2026-03-14, updated 2026-03-14)*
+### Space key → brake (current state)
+- Braking handled entirely via `MomentumBrakeState.brakeHeld` (volatile static, polled in `START_CLIENT_TICK` from GLFW). Read by `@Inject RETURN movementTick` in `AutomobileEntityMixin`.
+- Space no longer maps to `holdingDrift` at all — drift is fully decoupled (see J-key drift below).
+- *— Agent Sonnet 4.6 (2026-03-14, updated 2026-03-15)*
+
+### J key → transplanted drift (confirmed working 2026-03-15)
+- Automobility's `driftingTick()` is fully replaced by `@Inject HEAD driftingTick cancellable=true` in `AutomobileEntityMixin`.
+- J key state polled in `START_CLIENT_TICK` → `MomentumDriftState.driftKeyHeld` (volatile static).
+- Rising/falling edge tracked per entity via `@Unique boolean momentum$prevDriftKeyHeld` (instance field) — avoids client/server race on a shared static.
+- Logic is a direct transplant of Automobility source: rising edge starts drift (requires steering≠0, hSpeed>0.4, onGround, !drifting), falling edge calls `consumeTurboCharge()`, too-slow cancels with no boost. `turboCharge` increments 2/tick when steering matches driftDir, else 1/tick.
+- Controller rumble calls omitted (keyboard-only mod).
+- Writes directly to shadowed `drifting`/`driftDir`/`turboCharge` fields so all existing Momentum guards (understeer bypass, steering ramp, brake skip) work without changes.
+- **Ground check:** `automobileOnGround()` (Automobility's custom detection) always returns false for this entity — it uses a 0.04-block scan below `getBoundingBox().minY` which misses because the entity floats slightly above the block surface. Use `((Entity)(Object)this).isOnGround()` (Minecraft's native flag, set by `move()`) everywhere instead.
+- *— Agent Sonnet 4.6 (2026-03-15)*
 
 ### Brake decay — current state (linear, working)
 Pure linear inject in `AutomobileEntityMixin` at `@Inject RETURN movementTick`:
@@ -67,8 +76,9 @@ Two-part fix:
 | Steering ramp rate | `@ModifyConstant 0.42f` in `steeringTick` | ✅ done |
 | Speed-based understeer | `@ModifyArg AUtils.shift ordinal 1 index 2` in `postMovementTick` | ✅ done |
 | Brake decay (formula) | `@Inject RETURN movementTick` + `MomentumBrakeState` | ✅ done (linear, `brakeDecay = 0.012f`) |
-| Space → brake remapping | `@ModifyVariable provideClientInput ordinal 1` + `MomentumBrakeState` | ✅ done |
-| Drift fix (conditional holdingDrift + brake guard) | `@ModifyVariable provideClientInput ordinal 4` + `@Inject RETURN movementTick` guard | ✅ done |
+| Space → brake remapping | `@Inject RETURN movementTick` + `MomentumBrakeState` | ✅ done |
+| J-key drift (transplanted from Automobility) | `@Inject HEAD driftingTick cancellable=true` in `AutomobileEntityMixin` | ✅ done + confirmed working 2026-03-15 |
+| K-key arcade drift (slip angle) | `@Inject HEAD+RETURN movementTick` + `MomentumDriftState.kDriftKeyHeld` | ✅ done + confirmed working 2026-03-15 |
 | Comfortable speed multiplier | `@Inject AutomobileStats.getComfortableSpeed RETURN` | ✅ done |
 | Camera lock | `END_CLIENT_TICK` in `MomentumClient` | ✅ done |
 | HUD suppression | `@Inject AutomobileHud.renderSpeedometer HEAD cancel` | ✅ done |

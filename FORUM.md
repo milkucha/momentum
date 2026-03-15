@@ -540,3 +540,64 @@ private void momentum$applyBrake(CallbackInfo ci) {
 | Drifting, steering released | `false` (steering=0) | Falling edge → turbo consumed ✓ |
 
 — Agent B (Sonnet 4.6, 2026-03-14)
+
+---
+
+## Message 7 — FROM: Agent B (Sonnet 4.6) → TO: milkucha + next comrade
+
+### K-drift implementation complete (needs in-game test)
+
+K-drift is wired up and builds clean. Here's what was done and what to look for when testing.
+
+---
+
+### What changed
+
+**`MomentumDriftState.java`** — added `kDriftKeyHeld` volatile static (same pattern as `driftKeyHeld`).
+
+**`MomentumClient.java`** — added K key GLFW poll in `START_CLIENT_TICK` alongside Space and J.
+
+**`MomentumConfig.java`** — added K-drift section:
+- `kDriftSlipAngle = 22f` — max slip angle in degrees
+- `kDriftSlipDecay = 2.0f` — degrees/tick fade on release
+- `kDriftBoost = 0.04f` — engineSpeed bonus on clean drift end
+- `kDriftMinTicks = 15` — minimum ticks held for boost to apply
+
+**`AutomobileEntityMixin.java`** — three additions:
+1. `@Inject HEAD movementTick` — K-drift state machine. Rising edge (K + steering + speed + ground + no J-drift) starts drift; while held, converges `kDriftOffset` to target; on release, fades offset and applies boost.
+2. `@Inject RETURN movementTick` — rotates `getVelocity()` vector by `kDriftOffset` degrees around Y axis. This makes the car physically move in a direction diverging from its heading.
+3. `momentum$applyUndersteer` updated — skips understeer when `kDriftActive` (same as `drifting`), giving full steering authority during the slide.
+4. Per-entity `@Unique momentum$prevKDriftKeyHeld` field — same pattern as J-drift edge detection, avoids static race between client and server entities.
+
+**`SteeringDebugAccessor.java` + `MomentumHud.java`** — debug overlay now shows `K drft: ON/off  XX.X°` in cyan when active.
+
+---
+
+### Key design decisions
+
+- K-drift does NOT touch `holdingDrift`, `drifting`, `turboCharge`, or `driftDir`. Completely parallel system.
+- J-drift and K-drift cannot be active simultaneously — the rising-edge guard checks `!drifting` (Automobility/J-drift state).
+- The slip rotation uses Fabric/Yarn-mapped `Entity#getVelocity()` / `Entity#setVelocity()` via `(Entity)(Object)this` cast — works correctly within a `remap = false` mixin because source code is still remapped by Fabric Loom at compile time.
+- `lastVelocity` in Automobility's movementTick (used for grip blending) is NOT updated to the rotated value — this creates mild natural resistance to the slip (grip "wants" to straighten the car), which actually feels like real tire grip fighting the drift. Acceptable for V1.
+
+---
+
+### Test plan
+
+1. Build: ✅ clean
+2. Get in a car, reach speed (~30+ km/h), hold left or right, press K
+3. Expected: car slides sideways (velocity direction diverges from heading), debug HUD shows `K drft: ON`
+4. Hold K through the turn for 1+ seconds, release → small speed bump
+5. Press J → Automobility drift fires normally, K state ignored
+6. Press Space → braking works normally
+7. Tune `kDriftSlipAngle` in `momentum.json` (F6 to reload) to taste — 22° is the starting point
+
+---
+
+### Known issues / follow-up
+
+- No drift particles during K-drift (`createDriftParticles()` is Automobility-private and tied to `drifting == true`)
+- No skid sound tied to K-drift yet (`BrakingSkidSound.java` exists but only hooks Space braking)
+- The H-key diagnostic force-drift in `AutomobileBrakeMixin` is still there — remove before final commit
+
+— Agent B (Sonnet 4.6, 2026-03-15)

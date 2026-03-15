@@ -235,6 +235,39 @@ public class MomentumConfig {
      */
     public boolean debugHud = true;
 
+    // ── K-Drift ───────────────────────────────────────────────────────────────
+
+    /**
+     * Maximum slip angle (degrees) applied to the movement vector during K-drift.
+     * Larger values = more dramatic sideways slide.
+     *
+     * Recommended range: 10 – 40
+     */
+    public float kDriftSlipAngle = 22f;
+
+    /**
+     * Degrees per tick the slip angle fades back to zero after K is released.
+     * Lower = longer, floaty tail. Higher = snappier grip recovery.
+     *
+     * Recommended range: 1.0 – 5.0
+     */
+    public float kDriftSlipDecay = 2.0f;
+
+    /**
+     * engineSpeed bonus applied when K is released after a sustained drift.
+     * Only granted if the drift lasted at least kDriftMinTicks ticks.
+     *
+     * Recommended range: 0.01 – 0.08
+     */
+    public float kDriftBoost = 0.04f;
+
+    /**
+     * Minimum number of ticks K must be held (while drifting) to earn the boost.
+     *
+     * Default: 15 (~0.75 s)
+     */
+    public int kDriftMinTicks = 15;
+
     // ── Serialisation ─────────────────────────────────────────────────────────
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();

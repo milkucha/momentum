@@ -1,8 +1,9 @@
 package io.github.milkucha.momentum.hud;
 
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
-import io.github.milkucha.momentum.config.MomentumConfig;
+import io.github.milkucha.momentum.MomentumDriftState;
 import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
+import io.github.milkucha.momentum.config.MomentumConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.Entity;
@@ -131,14 +132,32 @@ public class MomentumHud {
 
         // ── Debug overlay — separate panel, upper-right by default ────────────
         if (cfg.debugHud && auto instanceof SteeringDebugAccessor dbg) {
-            String line1 = String.format("steer:  %+.3f", dbg.momentum$getSteering());
-            String line2 = String.format("hSpd:   %.3f",  dbg.momentum$getHSpeed());
-            String line3 = String.format("angSpd: %+.3f", dbg.momentum$getAngularSpeed());
-            String line4 = "space:  " + (dbg.momentum$isHoldingDrift() ? "YES" : "no");
-            String line5 = "drift:  " + (dbg.momentum$isDrifting()     ? "YES" : "no");
+            boolean jHeld   = MomentumDriftState.driftKeyHeld;
+            boolean drifting = dbg.momentum$isDrifting();
+            boolean onGround = dbg.momentum$isOnGround();
+            float   steering = dbg.momentum$getSteering();
+            float   hSpd     = dbg.momentum$getHSpeed();
 
-            int dbgW = 104;
-            int dbgH = 52;
+            // Condition breakdown: what's blocking drift start
+            String condStr = (steering != 0 ? "S" : "s")
+                           + (hSpd > 0.4f   ? "V" : "v")
+                           + (onGround       ? "G" : "g")
+                           + (!drifting      ? "D" : "d");  // uppercase = condition met
+
+            boolean kDrift = dbg.momentum$isKDriftActive();
+
+            String line1 = String.format("steer:  %+.3f", steering);
+            String line2 = String.format("hSpd:   %.3f",  hSpd);
+            String line3 = String.format("angSpd: %+.3f", dbg.momentum$getAngularSpeed());
+            String line4 = "J key:  " + (jHeld   ? "YES" : "no");
+            String line5 = "drift:  " + (drifting ? "YES" : "no");
+            String line6 = "turbo:  " + dbg.momentum$getTurboCharge();
+            String line7 = String.format("K drft: %s  %.1f°",
+                    kDrift ? "ON " : "off", dbg.momentum$getKDriftOffset());
+            String line8 = "cond:   " + condStr + " (SVGd=ok)";
+
+            int dbgW = 120;
+            int dbgH = 92;
             int dbgX = cfg.debugHudX >= 0
                     ? cfg.debugHudX
                     : screenW - dbgW - cfg.debugHudMarginRight;
@@ -149,9 +168,15 @@ public class MomentumHud {
             graphics.drawText(client.textRenderer, line2, dbgX + 6, dbgY + 13, 0xFF55FFFF, true);
             graphics.drawText(client.textRenderer, line3, dbgX + 6, dbgY + 22, 0xFFFF55FF, true);
             graphics.drawText(client.textRenderer, line4, dbgX + 6, dbgY + 31,
-                    dbg.momentum$isHoldingDrift() ? 0xFF55FF55 : 0xFF999999, true);
+                    jHeld    ? 0xFF55FF55 : 0xFF999999, true);
             graphics.drawText(client.textRenderer, line5, dbgX + 6, dbgY + 40,
-                    dbg.momentum$isDrifting() ? 0xFFFF5555 : 0xFF999999, true);
+                    drifting ? 0xFFFF5555 : 0xFF999999, true);
+            graphics.drawText(client.textRenderer, line6, dbgX + 6, dbgY + 49,
+                    dbg.momentum$getTurboCharge() > 0 ? 0xFFFFAA00 : 0xFF999999, true);
+            graphics.drawText(client.textRenderer, line7, dbgX + 6, dbgY + 58,
+                    kDrift ? 0xFF00AAFF : 0xFF999999, true);
+            graphics.drawText(client.textRenderer, line8, dbgX + 6, dbgY + 67,
+                    condStr.equals("SVGd") ? 0xFF55FF55 : 0xFFFF5555, true);
         }
     }
 

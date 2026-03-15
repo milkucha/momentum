@@ -28,15 +28,21 @@ public class MomentumClient implements ClientModInitializer {
                 "category.momentum"
         ));
 
-        // Update brake state from GLFW before entity ticks so both client and
-        // server entities read the correct value in movementTick this frame.
+        // Update brake and drift key states from GLFW before entity ticks so both
+        // client and server entities read the correct values this frame.
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity) {
                 long win = client.getWindow().getHandle();
                 MomentumBrakeState.brakeHeld =
                     GLFW.glfwGetKey(win, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+                MomentumDriftState.driftKeyHeld =
+                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_J) == GLFW.GLFW_PRESS;
+                MomentumDriftState.kDriftKeyHeld =
+                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_K) == GLFW.GLFW_PRESS;
             } else {
                 MomentumBrakeState.brakeHeld = false;
+                MomentumDriftState.driftKeyHeld = false;
+                MomentumDriftState.kDriftKeyHeld = false;
             }
         });
 
