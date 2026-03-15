@@ -331,8 +331,11 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     momentum$kDriftOffset = 0f;
                 }
             } else {
-                // K released: fade slip angle back to zero
-                momentum$kDriftOffset = AUtils.zero(momentum$kDriftOffset, cfg.kDriftSlipDecay);
+                // K released: fade slip angle back to zero (speed-adjusted)
+                float kDecay = cfg.kDriftSlipDecaySpeedRef > 0
+                    ? cfg.kDriftSlipDecay * cfg.kDriftSlipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
+                    : cfg.kDriftSlipDecay;
+                momentum$kDriftOffset = AUtils.zero(momentum$kDriftOffset, kDecay);
                 if (Math.abs(momentum$kDriftOffset) < 0.5f) {
                     if (momentum$kDriftTimer >= cfg.kDriftMinTicks) {
                         System.out.println("[Momentum-KDrift] BOOST GRANTED timer=" + momentum$kDriftTimer);
@@ -477,20 +480,23 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
 
         if (!momentum$mDriftActive) {
             if (mHeld) {
+                momentum$mHeldTimer++;
                 float mMinSpd = cfg.mDriftMinSpeedKmh / 72f;
-                if (!drifting && Math.abs(steering) > cfg.mDriftSteerThreshold && hSpeed > mMinSpd && mMcOnGnd) {
-                    // Steering detected — start drift in steering direction
+                if (!drifting && Math.abs(steering) > cfg.mDriftSteerThreshold && hSpeed > mMinSpd && mMcOnGnd
+                        && momentum$mHeldTimer >= cfg.mDriftMinHoldTicks) {
+                    // Steering detected and held long enough — start drift in steering direction
                     momentum$mDriftActive = true;
                     momentum$mDriftDir    = steering > 0 ? 1 : -1;
                     momentum$mDriftTimer  = 0;
-                    momentum$mDriftOffset = momentum$mDriftDir * cfg.kDriftSlipAngle;
+                    float initSteerFactor = cfg.mDriftConstantAngle ? 1.0f
+                        : (float) Math.pow(Math.abs(steering), cfg.mDriftSteerSensitivity);
+                    momentum$mDriftOffset = momentum$mDriftDir * cfg.mDriftSlipAngle * initSteerFactor;
                     momentum$mHeldTimer   = 0;
                     System.out.println("[Momentum-MDrift] DRIFT STARTED dir=" + momentum$mDriftDir
                         + " offset=" + momentum$mDriftOffset
                         + " steer=" + steering + " hSpd=" + hSpeed);
                 } else {
-                    // Steering below threshold or conditions not met — count toward auto-trigger
-                    momentum$mHeldTimer++;
+                    // Conditions not yet met — check auto-trigger threshold
                     int threshold = cfg.mDriftAutoTriggerTicks;
                     if (threshold > 0 && momentum$mHeldTimer >= threshold
                             && !drifting && hSpeed > mMinSpd && mMcOnGnd) {
@@ -498,7 +504,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                         momentum$mDriftActive = true;
                         momentum$mDriftDir    = dir;
                         momentum$mDriftTimer  = 0;
-                        momentum$mDriftOffset = dir * cfg.kDriftSlipAngle;
+                        momentum$mDriftOffset = dir * cfg.mDriftSlipAngle;
                         momentum$mHeldTimer   = 0;
                         System.out.println("[Momentum-MDrift] AUTO-TRIGGER dir=" + dir
                             + " hSpd=" + hSpeed);
@@ -512,8 +518,10 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
 
             if (mHeld) {
                 momentum$mDriftTimer++;
-                float target = momentum$mDriftDir * cfg.kDriftSlipAngle;
-                momentum$mDriftOffset = AUtils.shift(momentum$mDriftOffset, 4f, target);
+                float steerFactor = cfg.mDriftConstantAngle ? 1.0f
+                    : (float) Math.pow(Math.abs(steering), cfg.mDriftSteerSensitivity);
+                float target = momentum$mDriftDir * cfg.mDriftSlipAngle * steerFactor;
+                momentum$mDriftOffset = AUtils.shift(momentum$mDriftOffset, cfg.mDriftSlipConvergeRate, target);
                 if (hSpeed < 0.3f) {
                     System.out.println("[Momentum-MDrift] CANCELLED (too slow, hSpd=" + hSpeed + ")");
                     momentum$mDriftActive = false;
@@ -521,8 +529,11 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     momentum$mDriftOffset = 0f;
                 }
             } else {
-                // M released: fade slip angle back to zero, grant boost if sustained
-                momentum$mDriftOffset = AUtils.zero(momentum$mDriftOffset, cfg.kDriftSlipDecay);
+                // M released: fade slip angle back to zero, grant boost if sustained (speed-adjusted)
+                float mDecay = cfg.kDriftSlipDecaySpeedRef > 0
+                    ? cfg.kDriftSlipDecay * cfg.kDriftSlipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
+                    : cfg.kDriftSlipDecay;
+                momentum$mDriftOffset = AUtils.zero(momentum$mDriftOffset, mDecay);
                 if (Math.abs(momentum$mDriftOffset) < 0.5f) {
                     if (cfg.mDriftBoostEnabled && momentum$mDriftTimer >= cfg.kDriftMinTicks) {
                         System.out.println("[Momentum-MDrift] BOOST GRANTED timer=" + momentum$mDriftTimer);

@@ -601,3 +601,24 @@ K-drift is wired up and builds clean. Here's what was done and what to look for 
 - The H-key diagnostic force-drift in `AutomobileBrakeMixin` is still there — remove before final commit
 
 — Agent B (Sonnet 4.6, 2026-03-15)
+
+---
+
+## Message 8 — FROM: Agent Sonnet 4.6 (2026-03-15) → TO: milkucha
+
+### Reminder: M-drift auto-trigger not firing
+
+milkucha noted the M-drift auto-trigger (holds M with no steering → drift fires in random direction after `mDriftAutoTriggerTicks`) isn't firing as expected. It was left for later. Come back to this and investigate.
+
+The auto-trigger code is in `AutomobileEntityMixin.momentum$mDriftStateMachine` in the `else` branch (when steering is below `mDriftSteerThreshold`). The condition is:
+
+```java
+if (threshold > 0 && momentum$mHeldTimer >= threshold && !drifting && hSpeed > mMinSpd && mMcOnGnd)
+```
+
+Possible causes to check:
+- After the min-hold-ticks refactor, `mHeldTimer` now increments unconditionally (both branches) — verify the timer is actually accumulating in the no-steering case via the debug logs.
+- `mDriftSteerThreshold = 0.15f` — confirm `|steering|` really is below threshold when pressing M without turning.
+- `mDriftMinSpeedKmh = 60.0f` / `mDriftAutoTriggerTicks = 30` — check these values in `momentum.json` are what you expect.
+
+— Agent Sonnet 4.6 (2026-03-15)

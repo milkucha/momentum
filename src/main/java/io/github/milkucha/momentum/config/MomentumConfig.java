@@ -44,7 +44,7 @@ public class MomentumConfig {
      *
      * Recommended range: 0.6 – 1.4
      */
-    public float accelerationScale = 3.3f;
+    public float accelerationScale = 3.7f;
 
     /**
      * Amount of engineSpeed removed per tick while braking (Space key held).
@@ -60,7 +60,7 @@ public class MomentumConfig {
      *   0.012 → moderate (~2.5s to stop from full speed)  ← default
      *   0.03  → aggressive (~1s to stop from full speed)
      */
-    public float brakeDecay = 0.012f;
+    public float brakeDecay = 0.03f;
 
     // ── Steering ─────────────────────────────────────────────────────────────
 
@@ -153,7 +153,7 @@ public class MomentumConfig {
      *
      * Default: 5
      */
-    public float brakeZoomFov = 5f;
+    public float brakeZoomFov = 10f;
 
     /**
      * Lerp factor for the brake zoom FOV offset, applied each tick for both
@@ -167,7 +167,7 @@ public class MomentumConfig {
      *   0.1  → smooth (~16 ticks)  ← default
      *   0.3  → snappy (~5 ticks)
      */
-    public float brakeZoomLerp = 0.1f;
+    public float brakeZoomLerp = 0.3f;
 
     // ── HUD ──────────────────────────────────────────────────────────────────
 
@@ -269,15 +269,34 @@ public class MomentumConfig {
      *
      * Recommended range: 10 – 40
      */
-    public float kDriftSlipAngle = 22f;
+    public float kDriftSlipAngle = 30f;
 
     /**
-     * Degrees per tick the slip angle fades back to zero after K is released.
+     * Base decay rate: degrees per tick the slip angle fades back to zero after
+     * K/M is released, measured at kDriftSlipDecaySpeedRef.
      * Lower = longer, floaty tail. Higher = snappier grip recovery.
      *
      * Recommended range: 1.0 – 5.0
      */
-    public float kDriftSlipDecay = 1.8f;
+    public float kDriftSlipDecay = 2.1f;
+
+    /**
+     * Reference speed (hSpeed units) at which kDriftSlipDecay applies exactly.
+     * At lower speeds the decay is proportionally faster (shorter tail);
+     * at higher speeds it is proportionally slower (longer tail).
+     *
+     * Formula: effectiveDecay = kDriftSlipDecay * kDriftSlipDecaySpeedRef / max(|hSpeed|, 0.1)
+     *
+     * Example with default 0.6f:
+     *   hSpeed = 0.3  → decay × 2.0  (exits drift twice as fast)
+     *   hSpeed = 0.6  → decay × 1.0  (nominal — matches kDriftSlipDecay exactly)
+     *   hSpeed = 1.2  → decay × 0.5  (exits drift twice as slowly)
+     *
+     * Set to 0 to disable speed scaling and always use kDriftSlipDecay as-is.
+     *
+     * Default: 0.6
+     */
+    public float kDriftSlipDecaySpeedRef = 0.6f;
 
     /**
      * engineSpeed bonus applied when K is released after a sustained drift.
@@ -285,7 +304,7 @@ public class MomentumConfig {
      *
      * Recommended range: 0.01 – 0.08
      */
-    public float kDriftBoost = 0.01f;
+    public float kDriftBoost = 0.04f;
 
     /**
      * Minimum number of ticks K must be held (while drifting) to earn the boost.
@@ -297,13 +316,71 @@ public class MomentumConfig {
     // ── M-Drift ───────────────────────────────────────────────────────────────
 
     /**
+     * Maximum slip angle (degrees) for M-drift. Independent of K-drift's kDriftSlipAngle.
+     *
+     * Recommended range: 10 – 40
+     * Default: 22
+     */
+    public float mDriftSlipAngle = 22f;
+
+    /**
+     * Degrees per tick the slip angle converges toward its target while M is held.
+     * Higher = snappier, reaches full angle faster.
+     * Lower = slower build-up, more gradual slide.
+     *
+     * Recommended range: 1.0 – 8.0
+     * Default: 4.0
+     */
+    public float mDriftSlipConvergeRate = 4f;
+
+    /**
+     * Exponent applied to |steering| when computing the target slip angle.
+     * Controls how easy it is to reach the maximum angle with partial steering input.
+     *
+     * Formula: steerFactor = |steering| ^ mDriftSteerSensitivity
+     *
+     * 0.5 = square root  — half-lock steering already gives ~70% of max angle (easy)
+     * 1.0 = linear       — half-lock gives exactly 50% of max angle  ← default
+     * 2.0 = quadratic    — need ~70% lock to reach 50% of max angle (harder)
+     *
+     * Only applies when mDriftConstantAngle = false.
+     *
+     * Recommended range: 0.3 – 2.0
+     * Default: 1.0
+     */
+    public float mDriftSteerSensitivity = 2.0f;
+
+    /**
+     * When true, the M-drift slip angle is a constant kDriftSlipAngle regardless of steering input.
+     * When false (default), the slip angle scales with |steering| — more steering = wider angle,
+     * releasing steering = angle converges back toward 0 (stabilises).
+     *
+     * Set to true to restore the old constant-angle behaviour for testing/comparison.
+     *
+     * Default: false
+     */
+    public boolean mDriftConstantAngle = false;
+
+    /**
+     * Minimum number of ticks M must be held before a drift can trigger (manual or auto).
+     * This acts as a deliberate "charge" window — short taps are ignored.
+     *
+     * 0  = instant (no hold required, old behaviour)
+     * 5  = ~0.25 s  ← default
+     * 10 = ~0.5 s
+     *
+     * Default: 5
+     */
+    public int mDriftMinHoldTicks = 0;
+
+    /**
      * Ticks M must be held (while braking, no drift active) before a drift is
      * auto-triggered in a random direction.
      * Set to 0 to disable.
      *
      * Default: 30 (~1.5 s)
      */
-    public int mDriftAutoTriggerTicks = 30;
+    public int mDriftAutoTriggerTicks = 25;
 
     /**
      * Steering dead zone for M-drift. Drift only starts when |steering| exceeds this value.
@@ -315,7 +392,7 @@ public class MomentumConfig {
      *
      * Recommended range: 0.0 – 0.5
      */
-    public float mDriftSteerThreshold = 0.15f;
+    public float mDriftSteerThreshold = 0.9f;
 
     /**
      * Minimum speed in km/h required for M-drift to start.
@@ -323,7 +400,7 @@ public class MomentumConfig {
      *
      * Default: 60.0 km/h
      */
-    public float mDriftMinSpeedKmh = 60.0f;
+    public float mDriftMinSpeedKmh = 45.0f;
 
     /**
      * When true, releasing M after a sustained drift grants the engineSpeed + turbo boost.
@@ -331,7 +408,7 @@ public class MomentumConfig {
      *
      * Default: true
      */
-    public boolean mDriftBoostEnabled = true;
+    public boolean mDriftBoostEnabled = false;
 
     /**
      * How much of the K-drift slip angle is translated into a camera yaw offset.
@@ -345,7 +422,7 @@ public class MomentumConfig {
      *
      * Recommended range: 0.3 – 0.8
      */
-    public float kDriftCameraScale = 0.5f;
+    public float kDriftCameraScale = 3.0f;
 
     /**
      * Lerp factor when the camera yaw offset is moving TOWARD the drift angle (K pressed).
@@ -372,7 +449,7 @@ public class MomentumConfig {
      *   0.3  → snappy (~5 ticks)  ← default
      *   0.15 → moderate (~11 ticks)
      */
-    public float kDriftCameraLerpOut = 0.3f;
+    public float kDriftCameraLerpOut = 0.15f;
 
     // ── N-Drift ───────────────────────────────────────────────────────────────
 
