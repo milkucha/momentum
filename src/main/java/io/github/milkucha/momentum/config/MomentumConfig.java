@@ -165,25 +165,25 @@ public class MomentumConfig {
      * Distance from the right edge of the screen when hudX is -1 (right-anchored).
      * Ignored if hudX is set to a positive value.
      *
-     * Default: 10
+     * Default: 230
      */
-    public int hudMarginRight = 10;
+    public int hudMarginRight = 230;
 
     /**
      * Distance from the bottom edge of the screen when hudY is -1 (bottom-anchored).
      * Ignored if hudY is set to a positive value.
      *
-     * Default: 10
+     * Default: 29
      */
-    public int hudMarginBottom = 10;
+    public int hudMarginBottom = 29;
 
     /**
      * Pixel offset of the bar element from the panel top-left corner.
      *
-     * Default: 10, 8
+     * Default: 22, 10
      */
-    public int hudBarOffsetX = 10;
-    public int hudBarOffsetY = 8;
+    public int hudBarOffsetX = 22;
+    public int hudBarOffsetY = 10;
 
     /**
      * Scale multiplier for the bar texture. 1.0 = native size.
@@ -195,10 +195,10 @@ public class MomentumConfig {
     /**
      * Pixel offset of the animated object from the panel top-left corner.
      *
-     * Default: 52, 18
+     * Default: 4, 5
      */
-    public int hudAnimOffsetX = 52;
-    public int hudAnimOffsetY = 18;
+    public int hudAnimOffsetX = 4;
+    public int hudAnimOffsetY = 5;
 
     /**
      * Scale multiplier for the animated object texture. 1.0 = native size.
@@ -210,10 +210,10 @@ public class MomentumConfig {
     /**
      * Pixel offset of the speed text (km/h readout) from the panel top-left corner.
      *
-     * Default: 4, 4
+     * Default: 30, 0
      */
-    public int hudSpeedTextOffsetX = 4;
-    public int hudSpeedTextOffsetY = 4;
+    public int hudSpeedTextOffsetX = 30;
+    public int hudSpeedTextOffsetY = 0;
 
     /**
      * Position of the debug overlay panel.
@@ -251,7 +251,7 @@ public class MomentumConfig {
      *
      * Recommended range: 1.0 – 5.0
      */
-    public float kDriftSlipDecay = 2.0f;
+    public float kDriftSlipDecay = 1.8f;
 
     /**
      * engineSpeed bonus applied when K is released after a sustained drift.
@@ -259,7 +259,7 @@ public class MomentumConfig {
      *
      * Recommended range: 0.01 – 0.08
      */
-    public float kDriftBoost = 0.04f;
+    public float kDriftBoost = 0.01f;
 
     /**
      * Minimum number of ticks K must be held (while drifting) to earn the boost.

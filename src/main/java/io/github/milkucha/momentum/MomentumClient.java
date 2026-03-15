@@ -1,8 +1,12 @@
 package io.github.milkucha.momentum;
 
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
+import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import io.github.milkucha.momentum.config.MomentumConfig;
 import io.github.milkucha.momentum.hud.MomentumHud;
+import io.github.milkucha.momentum.sound.BrakingSkidSound;
+import io.github.milkucha.momentum.sound.JDriftSkidSound;
+import io.github.milkucha.momentum.sound.KDriftSkidSound;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -13,6 +17,10 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 public class MomentumClient implements ClientModInitializer {
+
+    private boolean prevBrakeHeld    = false;
+    private boolean prevJDriftActive = false;
+    private boolean prevKDriftActive = false;
 
     @Override
     public void onInitializeClient() {
@@ -58,6 +66,30 @@ public class MomentumClient implements ClientModInitializer {
                     client.player.setYaw(auto.getYaw());
                     client.player.setPitch(cfg.lockCameraPitch);
                 }
+
+                SteeringDebugAccessor accessor = (SteeringDebugAccessor) auto;
+
+                boolean brakeHeld = MomentumBrakeState.brakeHeld;
+                if (brakeHeld && !prevBrakeHeld) {
+                    client.getSoundManager().play(new BrakingSkidSound(auto));
+                }
+                prevBrakeHeld = brakeHeld;
+
+                boolean jDriftActive = accessor.momentum$isDrifting();
+                if (jDriftActive && !prevJDriftActive) {
+                    client.getSoundManager().play(new JDriftSkidSound(auto));
+                }
+                prevJDriftActive = jDriftActive;
+
+                boolean kDriftActive = accessor.momentum$isKDriftActive();
+                if (kDriftActive && !prevKDriftActive) {
+                    client.getSoundManager().play(new KDriftSkidSound(auto));
+                }
+                prevKDriftActive = kDriftActive;
+            } else {
+                prevBrakeHeld    = false;
+                prevJDriftActive = false;
+                prevKDriftActive = false;
             }
         });
     }

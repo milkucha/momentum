@@ -1,7 +1,7 @@
 package io.github.milkucha.momentum.sound;
 
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
-import io.github.milkucha.momentum.MomentumBrakeState;
+import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import net.minecraft.client.sound.MovingSoundInstance;
 import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundCategory;
@@ -10,22 +10,24 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.random.Random;
 
 /**
- * Looping skid sound that plays while the player brakes (Space held) and
- * engineSpeed is positive. Stops itself the moment either condition is false.
+ * Looping skid sound that plays while J-drift is active (drifting == true).
+ * Stops itself when drifting becomes false or the entity is removed.
  *
  * Uses Automobility's existing skid sound event (automobility:entity.automobile.skid).
  * Pitch scales with hSpeed so the screech naturally lowers as the car slows.
  */
-public class BrakingSkidSound extends MovingSoundInstance {
+public class JDriftSkidSound extends MovingSoundInstance {
 
     private static final Identifier SKID_ID =
             new Identifier("automobility", "entity.automobile.skid");
 
     private final AutomobileEntity automobile;
+    private final SteeringDebugAccessor accessor;
 
-    public BrakingSkidSound(AutomobileEntity automobile) {
+    public JDriftSkidSound(AutomobileEntity automobile) {
         super(resolveSound(), SoundCategory.AMBIENT, Random.create());
         this.automobile = automobile;
+        this.accessor = (SteeringDebugAccessor) automobile;
         this.repeat = true;
         this.repeatDelay = 0;
         this.x = automobile.getX();
@@ -47,10 +49,7 @@ public class BrakingSkidSound extends MovingSoundInstance {
             return;
         }
 
-        float hSpeed = automobile.getHSpeed();
-
-        // Stop when braking ends or speed has reached zero / gone into reverse
-        if (!MomentumBrakeState.brakeHeld || hSpeed <= 0f) {
+        if (!accessor.momentum$isDrifting()) {
             setDone();
             return;
         }
@@ -59,9 +58,9 @@ public class BrakingSkidSound extends MovingSoundInstance {
         this.y = automobile.getY();
         this.z = automobile.getZ();
 
-        // Pitch scales with speed: full screech at top speed, lower as car slows
+        float hSpeed = automobile.getHSpeed();
         this.pitch  = 0.7f + 0.5f * Math.min(hSpeed / 0.5f, 1.0f);
-        this.volume = ((net.minecraft.entity.Entity) automobile).isOnGround() ? 1.0f : 0.0f;
+        this.volume = 1.0f;
     }
 
     @Override

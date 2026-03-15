@@ -298,6 +298,9 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 }
             }
         } else {
+            // K-drift is active — emit smoke particles every tick (matches J-drift behaviour)
+            if (kMcOnGnd) createDriftParticles();
+
             if (kHeld) {
                 // Maintain slip angle while K held
                 momentum$kDriftTimer++;

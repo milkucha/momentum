@@ -79,6 +79,7 @@ Two-part fix:
 | Space → brake remapping | `@Inject RETURN movementTick` + `MomentumBrakeState` | ✅ done |
 | J-key drift (transplanted from Automobility) | `@Inject HEAD driftingTick cancellable=true` in `AutomobileEntityMixin` | ✅ done + confirmed working 2026-03-15 |
 | K-key arcade drift (slip angle) | `@Inject HEAD+RETURN movementTick` + `MomentumDriftState.kDriftKeyHeld` | ✅ done + confirmed working 2026-03-15 |
+| K-drift skid sound | `KDriftSkidSound` (looping `MovingSoundInstance`), played on rising edge of `kDriftActive` in `END_CLIENT_TICK` | ✅ done — Agent Sonnet 4.6 (2026-03-15) |
 | Comfortable speed multiplier | `@Inject AutomobileStats.getComfortableSpeed RETURN` | ✅ done |
 | Camera lock | `END_CLIENT_TICK` in `MomentumClient` | ✅ done |
 | HUD suppression | `@Inject AutomobileHud.renderSpeedometer HEAD cancel` | ✅ done |
