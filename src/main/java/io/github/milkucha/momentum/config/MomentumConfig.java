@@ -294,6 +294,45 @@ public class MomentumConfig {
      */
     public int kDriftMinTicks = 15;
 
+    // ── M-Drift ───────────────────────────────────────────────────────────────
+
+    /**
+     * Ticks M must be held (while braking, no drift active) before a drift is
+     * auto-triggered in a random direction.
+     * Set to 0 to disable.
+     *
+     * Default: 30 (~1.5 s)
+     */
+    public int mDriftAutoTriggerTicks = 30;
+
+    /**
+     * Steering dead zone for M-drift. Drift only starts when |steering| exceeds this value.
+     * Steering ranges from -1.0 (full left) to 1.0 (full right).
+     *
+     * 0.0  = any steering input triggers drift (no dead zone)
+     * 0.15 = ignore small inputs, require intentional turn  ← default
+     * 0.5  = only trigger at half-lock or more
+     *
+     * Recommended range: 0.0 – 0.5
+     */
+    public float mDriftSteerThreshold = 0.15f;
+
+    /**
+     * Minimum speed in km/h required for M-drift to start.
+     * Below this speed the drift trigger is suppressed (braking continues).
+     *
+     * Default: 60.0 km/h
+     */
+    public float mDriftMinSpeedKmh = 60.0f;
+
+    /**
+     * When true, releasing M after a sustained drift grants the engineSpeed + turbo boost.
+     * Set to false to disable all post-drift boost for M-drift.
+     *
+     * Default: true
+     */
+    public boolean mDriftBoostEnabled = true;
+
     /**
      * How much of the K-drift slip angle is translated into a camera yaw offset.
      * The camera is shifted by (kDriftOffset * kDriftCameraScale) degrees from the car heading,
