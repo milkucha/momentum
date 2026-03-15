@@ -8,7 +8,8 @@
   ],
   "client": [
     "AutomobileHudMixin",
-    "AutomobileBrakeMixin"
+    "AutomobileBrakeMixin",
+    "CameraLockMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -150,7 +150,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     // ── Brake ────────────────────────────────────────────────────────────────
 
     /**
-     * Applies proportional braking directly to engineSpeed at the end of movementTick,
+     * Applies linear braking directly to engineSpeed at the end of movementTick,
      * using MomentumBrakeState.brakeHeld as the source of truth instead of
      * Automobility's braking flag.
      *
@@ -162,9 +162,10 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      * the integrated-server entity apply braking for exactly as long as Space is
      * physically held — no stuck-flag problem possible.
      *
-     * Multiplicative formula: engineSpeed *= (1 - brakeDecay) per tick.
-     * At brakeDecay = 0.1 a brief 1-tick tap drops speed by 10%.
-     * Floor at 0: Space acts as a handbrake, not a reverse accelerator.
+     * Linear formula: engineSpeed -= brakeDecay per tick (floored at -0.25).
+     * Constant deceleration mirrors real friction braking — no asymptotic tail near zero.
+     * Holding Space long enough drives through zero into reverse, capped at Automobility's
+     * reverse floor (-0.25).
      *
      * On a dedicated server brakeHeld is always false so this inject is a no-op
      * (the car coasts normally).
@@ -172,15 +173,9 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyBrake(CallbackInfo ci) {
         if (!MomentumBrakeState.brakeHeld) return;
+        if (drifting) return;  // braking reduces hSpeed which would cancel the drift
         float decay = MomentumConfig.get().brakeDecay;
-        if (engineSpeed > 1e-3f) {
-            // Proportional deceleration: large effect at high speed, tapering toward 0.
-            // Threshold prevents asymptotic stall — once below ~0.07 km/h, treat as stopped.
-            engineSpeed = engineSpeed * (1f - decay);
-        } else {
-            // Linear push into/through reverse, capped at -0.25 (Automobility's reverse floor)
-            engineSpeed = Math.max(engineSpeed - decay, -0.25f);
-        }
+        engineSpeed = Math.max(engineSpeed - decay, -0.25f);
     }
 
     // ── Debug accessors (SteeringDebugAccessor) ───────────────────────────────

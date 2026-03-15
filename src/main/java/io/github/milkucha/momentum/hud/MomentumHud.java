@@ -6,126 +6,130 @@ import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.Entity;
+import net.minecraft.util.Identifier;
 
 /**
- * MomentumHud — draws the velocimeter panel while the player is riding an AutomobileEntity.
+ * MomentumHud — texture-based speedometer HUD.
+ *
+ * ── Textures (drop PNGs into assets/momentum/textures/hud/) ──────────────────
+ *
+ *   frame.png       — static background frame, drawn first
+ *
+ *   bar_0.png       — bar sprite at   0–19 km/h
+ *   bar_1.png       — bar sprite at  20–39 km/h
+ *   bar_2.png       — bar sprite at  40–59 km/h
+ *   bar_3.png       — bar sprite at  60–79 km/h
+ *   bar_4.png       — bar sprite at  80+  km/h
+ *
+ *   anim_0.png      — animated object, frame 0  (0–19 ticks into cycle)
+ *   anim_1.png      — animated object, frame 1  (20–39 ticks)
+ *   anim_2.png      — animated object, frame 2  (40–59 ticks)
+ *   anim_3.png      — animated object, frame 3  (60–79 ticks)
+ *   (cycle length = 4 × 20 = 80 ticks)
+ *
+ * ── Layout constants ──────────────────────────────────────────────────────────
+ * Adjust FRAME_W/H, BAR_W/H, ANIM_W/H to match your actual PNG dimensions.
+ * Adjust BAR_OFFSET_* and ANIM_OFFSET_* to position elements within the frame.
  *
  * ── Speed conversion ──────────────────────────────────────────────────────────
- * AutomobileEntity.getEffectiveSpeed() returns blocks/tick (a double).
- * The original HUD multiplies by 20 (ticks/sec) to get blocks/sec, labelled as "m/s".
- * We multiply by 72 (= 20 ticks/s × 3.6) to get a km/h equivalent, which feels
- * more intuitive as a speedometer readout.
- *
- * ── Layout ────────────────────────────────────────────────────────────────────
- * Position is configurable via momentum.json (hudX, hudY, hudMarginRight, hudMarginBottom).
- * By default the panel sits in the bottom-right corner:
- *
- *   ┌─────────────────────────┐
- *   │  [████████████░░░░░░░░] │  ← speed bar
- *   │       142 km/h          │  ← readout: white number, grey unit
- *   └─────────────────────────┘
- *
- * ── Colors ────────────────────────────────────────────────────────────────────
- * Bar color reflects the same turbo states Automobility's original HUD uses
- * for text color, so the two systems stay visually consistent:
- *
- *   White / green   → normal
- *   Orange          → boost active (boostTimer > 0)
- *   Yellow          → small turbo charge
- *   Cyan            → medium turbo charge
- *   Purple          → large turbo charge
+ * getEffectiveSpeed() → blocks/tick.  × 72 (= 20 t/s × 3.6) → km/h.
  */
 public class MomentumHud {
 
-    private static final int PANEL_WIDTH  = 120;
-    private static final int PANEL_HEIGHT = 38;
+    // ── Texture dimensions — edit to match your PNG files ─────────────────────
+    private static final int FRAME_W = 76;
+    private static final int FRAME_H = 24;
 
-    private static final int BAR_WIDTH  = 100;
-    private static final int BAR_HEIGHT = 8;
+    private static final int BAR_W = 53;
+    private static final int BAR_H = 10;
 
-    /** blocks/tick → km/h */
+    private static final int ANIM_W = 17;
+    private static final int ANIM_H = 16;
+
+    // Offsets are now read from config (hudBarOffsetX/Y, hudAnimOffsetX/Y, hudSpeedTextOffsetX/Y)
+
+    // ── Texture identifiers ───────────────────────────────────────────────────
+    private static final Identifier TEX_FRAME =
+            new Identifier("momentum", "textures/hud/frame.png");
+
+    /** 5 frames — one per 20 km/h bracket: 0-19, 20-39, 40-59, 60-79, 80+ */
+    private static final Identifier[] TEX_BAR = {
+        new Identifier("momentum", "textures/hud/bar_0.png"),
+        new Identifier("momentum", "textures/hud/bar_1.png"),
+        new Identifier("momentum", "textures/hud/bar_2.png"),
+        new Identifier("momentum", "textures/hud/bar_3.png"),
+        new Identifier("momentum", "textures/hud/bar_4.png"),
+    };
+
+    /** 4 frames — advances one frame every 20 ticks (full cycle = 80 ticks) */
+    private static final Identifier[] TEX_ANIM = {
+        new Identifier("momentum", "textures/hud/anim_0.png"),
+        new Identifier("momentum", "textures/hud/anim_1.png"),
+        new Identifier("momentum", "textures/hud/anim_2.png"),
+        new Identifier("momentum", "textures/hud/anim_3.png"),
+    };
+
     private static final double TO_KMH = 72.0;
 
-    /** Speed at which the bar is completely full */
-    private static final double MAX_DISPLAY_KMH = 300.0;
-
-    // Colors (ARGB)
+    // Colors for the debug overlay
     private static final int COL_PANEL_BG   = 0xAA000000;
     private static final int COL_PANEL_EDGE = 0xFF444444;
-    private static final int COL_BAR_BG     = 0xFF222222;
-    private static final int COL_TEXT        = 0xFFFFFFFF;
-    private static final int COL_UNIT        = 0xFF999999;
-
-    // Bar fill colors — mirroring Automobility's own turbo color thresholds
-    private static final int COL_BAR_NORMAL  = 0xFF00CC55;
-    private static final int COL_BAR_BOOST   = 0xFFFF6F00; // matches original 0xFF6F00
-    private static final int COL_BAR_TURBO_S = 0xFFFFEA4A; // small  (SMALL_TURBO_TIME)
-    private static final int COL_BAR_TURBO_M = 0xFF7DE9FF; // medium (MEDIUM_TURBO_TIME)
-    private static final int COL_BAR_TURBO_L = 0xFF906EFF; // large  (LARGE_TURBO_TIME)
+    private static final int COL_TEXT       = 0xFFFFFFFF;
+    private static final int COL_UNIT       = 0xFF999999;
 
     public static void render(DrawContext graphics, float tickDelta) {
         MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) return;
 
-        if (client.player == null) return;
         Entity vehicle = client.player.getVehicle();
         if (!(vehicle instanceof AutomobileEntity auto)) return;
-        if (client.currentScreen != null) return; // hide when a menu is open
+        if (client.currentScreen != null) return;
 
         int screenW = client.getWindow().getScaledWidth();
         int screenH = client.getWindow().getScaledHeight();
 
         MomentumConfig cfg = MomentumConfig.get();
 
-        // Resolve panel position from config
         int panelX = cfg.hudX >= 0
                 ? cfg.hudX
-                : screenW - PANEL_WIDTH - cfg.hudMarginRight;
-
+                : screenW - FRAME_W - cfg.hudMarginRight;
         int panelY = cfg.hudY >= 0
                 ? cfg.hudY
-                : screenH - PANEL_HEIGHT - cfg.hudMarginBottom;
+                : screenH - FRAME_H - cfg.hudMarginBottom;
 
-        // Speed and state
         double speedKmh = auto.getEffectiveSpeed() * TO_KMH;
-        int boostTimer  = auto.getBoostTimer();
-        int turbo       = auto.getTurboCharge();
 
-        // Bar color — same thresholds as Automobility's text color logic
-        int barColor;
-        if (turbo > AutomobileEntity.LARGE_TURBO_TIME)       barColor = COL_BAR_TURBO_L;
-        else if (turbo > AutomobileEntity.MEDIUM_TURBO_TIME) barColor = COL_BAR_TURBO_M;
-        else if (turbo > AutomobileEntity.SMALL_TURBO_TIME)  barColor = COL_BAR_TURBO_S;
-        else if (boostTimer > 0)                             barColor = COL_BAR_BOOST;
-        else                                                  barColor = COL_BAR_NORMAL;
+        // ── Bar — drawn first (behind frame) ──────────────────────────────────
+        int barFrame = Math.min((int)(speedKmh / 20.0), TEX_BAR.length - 1);
+        drawScaled(graphics, TEX_BAR[barFrame],
+                panelX + cfg.hudBarOffsetX, panelY + cfg.hudBarOffsetY,
+                BAR_W, BAR_H, cfg.hudBarScale);
 
-        float fraction = (float) Math.min(speedKmh / MAX_DISPLAY_KMH, 1.0);
-
-        // Panel background
-        drawPanel(graphics, panelX, panelY, PANEL_WIDTH, PANEL_HEIGHT);
-
-        // Speed bar
-        int barX = panelX + (PANEL_WIDTH - BAR_WIDTH) / 2;
-        int barY = panelY + 8;
-
-        graphics.fill(barX, barY, barX + BAR_WIDTH, barY + BAR_HEIGHT, COL_BAR_BG);
-        int fillW = (int) (BAR_WIDTH * fraction);
-        if (fillW > 0) {
-            graphics.fill(barX, barY, barX + fillW, barY + BAR_HEIGHT, barColor);
+        // ── Animated object — drawn second (behind frame) ─────────────────────
+        int animFrame = 0;
+        if (auto instanceof SteeringDebugAccessor acc && acc.momentum$isAccelerating()) {
+            animFrame = (int)((client.world.getTime() / 2L) % TEX_ANIM.length);
         }
-        drawBorder(graphics, barX, barY, BAR_WIDTH, BAR_HEIGHT, 0xFF555555);
+        drawScaled(graphics, TEX_ANIM[animFrame],
+                panelX + cfg.hudAnimOffsetX, panelY + cfg.hudAnimOffsetY,
+                ANIM_W, ANIM_H, cfg.hudAnimScale);
 
-        // Speed text
+        // ── Frame — drawn on top ───────────────────────────────────────────────
+        graphics.drawTexture(TEX_FRAME,
+                panelX, panelY, 0, 0, FRAME_W, FRAME_H, FRAME_W, FRAME_H);
+
+        // ── Speed text ────────────────────────────────────────────────────────
         String speedStr = String.format("%.0f", speedKmh);
         String unitStr  = " km/h";
-        int textY  = barY + BAR_HEIGHT + 6;
         int speedW = client.textRenderer.getWidth(speedStr);
-        int unitW  = client.textRenderer.getWidth(unitStr);
-        int textX  = panelX + (PANEL_WIDTH - speedW - unitW) / 2;
+        graphics.drawText(client.textRenderer, speedStr,
+                panelX + cfg.hudSpeedTextOffsetX, panelY + cfg.hudSpeedTextOffsetY,
+                COL_TEXT, true);
+        graphics.drawText(client.textRenderer, unitStr,
+                panelX + cfg.hudSpeedTextOffsetX + speedW, panelY + cfg.hudSpeedTextOffsetY,
+                COL_UNIT, true);
 
-        graphics.drawText(client.textRenderer, speedStr, textX,          textY, COL_TEXT, true);
-        graphics.drawText(client.textRenderer, unitStr,  textX + speedW, textY, COL_UNIT, true);
-
-        // Debug overlay — shown only when debugHud = true in config
+        // ── Debug overlay — separate panel, upper-right by default ────────────
         if (cfg.debugHud && auto instanceof SteeringDebugAccessor dbg) {
             String line1 = String.format("steer:  %+.3f", dbg.momentum$getSteering());
             String line2 = String.format("hSpd:   %.3f",  dbg.momentum$getHSpeed());
@@ -133,10 +137,12 @@ public class MomentumHud {
             String line4 = "space:  " + (dbg.momentum$isHoldingDrift() ? "YES" : "no");
             String line5 = "drift:  " + (dbg.momentum$isDrifting()     ? "YES" : "no");
 
-            int dbgX = panelX;
-            int dbgY = panelY - 54;
-            int dbgW = PANEL_WIDTH;
+            int dbgW = 104;
             int dbgH = 52;
+            int dbgX = cfg.debugHudX >= 0
+                    ? cfg.debugHudX
+                    : screenW - dbgW - cfg.debugHudMarginRight;
+            int dbgY = cfg.debugHudY;
 
             drawPanel(graphics, dbgX, dbgY, dbgW, dbgH);
             graphics.drawText(client.textRenderer, line1, dbgX + 6, dbgY + 4,  0xFFFFFF55, true);
@@ -149,15 +155,20 @@ public class MomentumHud {
         }
     }
 
-    private static void drawPanel(DrawContext g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, COL_PANEL_BG);
-        drawBorder(g, x, y, w, h, COL_PANEL_EDGE);
+    private static void drawScaled(DrawContext g, Identifier tex, int x, int y, int w, int h, float scale) {
+        var matrices = g.getMatrices();
+        matrices.push();
+        matrices.translate(x, y, 0);
+        matrices.scale(scale, scale, 1f);
+        g.drawTexture(tex, 0, 0, 0, 0, w, h, w, h);
+        matrices.pop();
     }
 
-    private static void drawBorder(DrawContext g, int x, int y, int w, int h, int color) {
-        g.fill(x,         y,         x + w,     y + 1,     color); // top
-        g.fill(x,         y + h - 1, x + w,     y + h,     color); // bottom
-        g.fill(x,         y,         x + 1,     y + h,     color); // left
-        g.fill(x + w - 1, y,         x + w,     y + h,     color); // right
+    private static void drawPanel(DrawContext g, int x, int y, int w, int h) {
+        g.fill(x, y, x + w, y + h, COL_PANEL_BG);
+        g.fill(x,         y,         x + w,     y + 1,     COL_PANEL_EDGE); // top
+        g.fill(x,         y + h - 1, x + w,     y + h,     COL_PANEL_EDGE); // bottom
+        g.fill(x,         y,         x + 1,     y + h,     COL_PANEL_EDGE); // left
+        g.fill(x + w - 1, y,         x + w,     y + h,     COL_PANEL_EDGE); // right
     }
 }

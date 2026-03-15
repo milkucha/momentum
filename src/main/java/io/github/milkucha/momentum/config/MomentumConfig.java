@@ -31,7 +31,7 @@ public class MomentumConfig {
      *   0.012 → stops in ~4s at full speed
      *   0.025 → original Automobility behaviour (~2s)
      */
-    public float coastDecay = 0.008f;
+    public float coastDecay = 0.009f;
 
     /**
      * Scales the acceleration curve's top-end resistance.
@@ -44,24 +44,23 @@ public class MomentumConfig {
      *
      * Recommended range: 0.6 – 1.4
      */
-    public float accelerationScale = 0.85f;
+    public float accelerationScale = 3.3f;
 
     /**
-     * Fraction of engineSpeed removed per tick while braking (Space key held).
-     * Braking is MULTIPLICATIVE: each tick, engineSpeed *= (1 - brakeDecay).
-     * This means deceleration is proportional to current speed — strong at high speed,
-     * tapering naturally at low speed — so a brief press reduces speed by a fraction
-     * rather than driving it abruptly to zero. Floor is 0 (Space never pushes into reverse).
+     * Amount of engineSpeed removed per tick while braking (Space key held).
+     * Braking is LINEAR: each tick, engineSpeed -= brakeDecay (floored at -0.25).
+     * Constant deceleration mirrors real friction braking — no asymptotic tail near zero.
+     * Holding Space long enough will push through zero into reverse.
      *
      * Lower = softer, more gradual braking.
-     * Higher = sharper initial speed drop per tick.
+     * Higher = sharper, more aggressive braking.
      *
-     * Recommended range: 0.05 – 0.25
-     *   0.25 → aggressive: ~25% speed drop per tick
-     *   0.10 → moderate: ~10% per tick  ← default
-     *   0.05 → gentle: ~5% per tick
+     * Recommended range: 0.005 – 0.05
+     *   0.005 → very gentle (~5s to stop from full speed)
+     *   0.012 → moderate (~2.5s to stop from full speed)  ← default
+     *   0.03  → aggressive (~1s to stop from full speed)
      */
-    public float brakeDecay = 0.10f;
+    public float brakeDecay = 0.012f;
 
     // ── Steering ─────────────────────────────────────────────────────────────
 
@@ -124,7 +123,25 @@ public class MomentumConfig {
      *
      * Recommended range: 1.0 – 3.0
      */
-    public float comfortableSpeedMultiplier = 1.5f;
+    public float comfortableSpeedMultiplier = 1.55f;
+
+    // ── Camera ───────────────────────────────────────────────────────────────
+
+    /**
+     * When true, the camera is locked to face the front of the car.
+     * The player cannot look around while driving.
+     *
+     * Default: true
+     */
+    public boolean lockCamera = true;
+
+    /**
+     * Pitch angle (degrees) the camera is locked to while driving.
+     * 0 = horizontal, positive = looking down.
+     *
+     * Default: 10 (slight downward look, like a driver's eye view)
+     */
+    public float lockCameraPitch = 10f;
 
     // ── HUD ──────────────────────────────────────────────────────────────────
 
@@ -161,13 +178,62 @@ public class MomentumConfig {
     public int hudMarginBottom = 10;
 
     /**
+     * Pixel offset of the bar element from the panel top-left corner.
+     *
+     * Default: 10, 8
+     */
+    public int hudBarOffsetX = 10;
+    public int hudBarOffsetY = 8;
+
+    /**
+     * Scale multiplier for the bar texture. 1.0 = native size.
+     *
+     * Default: 1.0
+     */
+    public float hudBarScale = 1.0f;
+
+    /**
+     * Pixel offset of the animated object from the panel top-left corner.
+     *
+     * Default: 52, 18
+     */
+    public int hudAnimOffsetX = 52;
+    public int hudAnimOffsetY = 18;
+
+    /**
+     * Scale multiplier for the animated object texture. 1.0 = native size.
+     *
+     * Default: 1.0
+     */
+    public float hudAnimScale = 1.0f;
+
+    /**
+     * Pixel offset of the speed text (km/h readout) from the panel top-left corner.
+     *
+     * Default: 4, 4
+     */
+    public int hudSpeedTextOffsetX = 4;
+    public int hudSpeedTextOffsetY = 4;
+
+    /**
+     * Position of the debug overlay panel.
+     * Set debugHudX to -1 to anchor to the RIGHT edge (uses debugHudMarginRight).
+     * debugHudY is always measured from the TOP edge.
+     *
+     * Default: top-right corner
+     */
+    public int debugHudX = -1;
+    public int debugHudY = 10;
+    public int debugHudMarginRight = 10;
+
+    /**
      * When true, draws a small debug overlay above the speedometer showing
      * raw steering (-1..1), hSpeed, and drifting state.
      * Useful for tuning steeringRampRate and steeringUndersteer.
      *
      * Default: false
      */
-    public boolean debugHud = false;
+    public boolean debugHud = true;
 
     // ── Serialisation ─────────────────────────────────────────────────────────
 

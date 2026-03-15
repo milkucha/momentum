@@ -45,6 +45,14 @@ public class MomentumClient implements ClientModInitializer {
                 MomentumConfig.reload();
                 client.player.sendMessage(Text.literal("[Momentum] Config reloaded"), true);
             }
+
+            if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity auto) {
+                MomentumConfig cfg = MomentumConfig.get();
+                if (cfg.lockCamera) {
+                    client.player.setYaw(auto.getYaw());
+                    client.player.setPitch(cfg.lockCameraPitch);
+                }
+            }
         });
     }
 }
