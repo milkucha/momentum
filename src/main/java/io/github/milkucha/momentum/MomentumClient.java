@@ -30,7 +30,8 @@ public class MomentumClient implements ClientModInitializer {
     private boolean prevKDriftActive   = false;
     private boolean prevNDriftKeyHeld  = false;
     private boolean prevMDriftActive   = false;
-    private float   cameraDriftYawOffset = 0f;
+    private float   kCameraDriftYawOffset = 0f;
+    private float   mCameraDriftYawOffset = 0f;
     private float   brakeZoomVelocity    = 0f;
     private float   prevHSpeed           = 0f;
 
@@ -115,19 +116,23 @@ public class MomentumClient implements ClientModInitializer {
                 MomentumConfig cfg = MomentumConfig.get();
                 SteeringDebugAccessor accessor = (SteeringDebugAccessor) auto;
 
-                // Lerp camera yaw offset toward (kDriftOffset + mDriftOffset) * scale.
-                // Use a slow lerp while either drift is active (dramatic swing in) and a fast
-                // lerp on exit (snappy return to car heading).
-                float combinedDriftOffset = accessor.momentum$getKDriftOffset()
-                                          + accessor.momentum$getMDriftOffset();
-                float targetCameraOffset = cfg.camera.driftCamera
-                        ? combinedDriftOffset * cfg.camera.driftScale : 0f;
-                boolean kActive = accessor.momentum$isKDriftActive() || accessor.momentum$isMDriftActive();
-                float cameraLerp = kActive ? cfg.camera.driftLerpIn : cfg.camera.driftLerpOut;
-                cameraDriftYawOffset += (targetCameraOffset - cameraDriftYawOffset) * cameraLerp;
+                // Independent camera lerp for K-drift and M-drift.
+                // Each drift's contribution is tracked separately so scale/lerp settings don't interfere.
+                boolean kDriftCamActive = accessor.momentum$isKDriftActive();
+                boolean mDriftCamActive = accessor.momentum$isMDriftActive();
+
+                float kTarget = cfg.kDrift.cameraEnabled
+                        ? accessor.momentum$getKDriftOffset() * cfg.kDrift.cameraScale : 0f;
+                float mTarget = cfg.mDrift.cameraEnabled
+                        ? accessor.momentum$getMDriftOffset() * cfg.mDrift.cameraScale : 0f;
+
+                kCameraDriftYawOffset += (kTarget - kCameraDriftYawOffset)
+                        * (kDriftCamActive ? cfg.kDrift.cameraLerpIn : cfg.kDrift.cameraLerpOut);
+                mCameraDriftYawOffset += (mTarget - mCameraDriftYawOffset)
+                        * (mDriftCamActive ? cfg.mDrift.cameraLerpIn : cfg.mDrift.cameraLerpOut);
 
                 if (cfg.camera.lock) {
-                    client.player.setYaw(auto.getYaw() + cameraDriftYawOffset);
+                    client.player.setYaw(auto.getYaw() + kCameraDriftYawOffset + mCameraDriftYawOffset);
                     client.player.setPitch(cfg.camera.pitch);
                 }
 
@@ -172,18 +177,21 @@ public class MomentumClient implements ClientModInitializer {
                 }
                 prevNDriftKeyHeld = nDriftKeyHeld;
 
-                boolean mKeyHeld = MomentumDriftState.mKeyHeld;
-                if (mKeyHeld && !prevMDriftActive) {
+                boolean mEffectiveHeld = MomentumDriftState.mKeyHeld ||
+                    (MomentumDriftState.oKeyHeld &&
+                        MomentumConfig.get().oDrift.profile == MomentumConfig.ODrift.Profile.M);
+                if (mEffectiveHeld && !prevMDriftActive) {
                     client.getSoundManager().play(new MDriftSkidSound(auto));
                 }
-                prevMDriftActive = mKeyHeld;
+                prevMDriftActive = mEffectiveHeld;
             } else {
                 prevBrakeHeld        = false;
                 prevJDriftActive     = false;
                 prevKDriftActive     = false;
                 prevNDriftKeyHeld    = false;
                 prevMDriftActive     = false;
-                cameraDriftYawOffset               = 0f;
+                kCameraDriftYawOffset              = 0f;
+                mCameraDriftYawOffset              = 0f;
                 brakeZoomVelocity                  = 0f;
                 prevHSpeed                         = 0f;
                 MomentumBrakeState.brakeZoomOffset = 0f;

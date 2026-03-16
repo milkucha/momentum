@@ -45,10 +45,6 @@ public class MomentumConfig {
         public float   brakeZoomInputScale = 30f;  // decel units → zoom force multiplier
         public float   brakeZoomSpring     = 0.06f; // spring constant (return-to-zero pull)
         public float   brakeZoomDamping    = 0.90f; // velocity decay per tick (0=none,1=freeze)
-        public boolean driftCamera   = true;   // enable camera yaw offset during K/M drift
-        public float   driftScale    = 2.0f;
-        public float   driftLerpIn   = 0.1f;
-        public float   driftLerpOut  = 0.1f;
     }
 
     public static class Hud {
@@ -111,12 +107,18 @@ public class MomentumConfig {
         public float   slipDecay         = 0.9f;
         public float   slipDecaySpeedRef = 0.2f;
         public float   boost             = 0.04f;
+        public int     boostDuration     = 9;
         public int     minTicks          = 15;
         public boolean boostEnabled      = false;
         public boolean brakeEnabled      = false;
         public float   steerThreshold    = 0.0f;  // minimum |steering| to start drift (0 = any non-zero)
         public int     minHoldTicks      = 0;     // ticks K must be held before drift can start
         public int     autoTriggerTicks  = 0;     // ticks before auto-start in random direction (0 = disabled)
+        public float   minSpeedKmh       = 28.8f; // minimum speed to start drift (0.4 hSpeed * 72)
+        public boolean cameraEnabled     = true;
+        public float   cameraScale       = 2.0f;
+        public float   cameraLerpIn      = 0.1f;
+        public float   cameraLerpOut     = 0.1f;
     }
 
     public static class MDrift {
@@ -139,6 +141,10 @@ public class MomentumConfig {
         public float   minSpeedKmh       = 45.0f;
         public boolean boostEnabled      = true;
         public boolean brakeEnabled      = true;
+        public boolean cameraEnabled     = true;
+        public float   cameraScale       = 2.0f;
+        public float   cameraLerpIn      = 0.1f;
+        public float   cameraLerpOut     = 0.1f;
     }
 
     public static class NDrift {

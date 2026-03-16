@@ -148,6 +148,12 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         if (((Entity)(Object)this).getWorld().isClient) return MomentumDriftState.oKeyHeld;
         UUID id = momentum$getRiderUuid(); return id != null && ServerKeyState.getO(id);
     }
+    @Unique private boolean momentum$mEffectiveKey() {
+        return momentum$mKey() || (momentum$oKey() && MomentumConfig.get().oDrift.profile == MomentumConfig.ODrift.Profile.M);
+    }
+    @Unique private boolean momentum$kEffectiveKey() {
+        return momentum$kKey() || (momentum$oKey() && MomentumConfig.get().oDrift.profile == MomentumConfig.ODrift.Profile.K);
+    }
 
     // ── Coasting fix ─────────────────────────────────────────────────────────
 
@@ -318,7 +324,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$kDriftStateMachine(CallbackInfo ci) {
-        boolean kHeld     = momentum$kKey() || (momentum$oKey() && MomentumConfig.get().oDrift.profile == MomentumConfig.ODrift.Profile.K);
+        boolean kHeld     = momentum$kEffectiveKey();
         boolean prevKHeld = momentum$prevKDriftKeyHeld;
         MomentumConfig.KDrift cfg = MomentumConfig.get().kDrift;
 
@@ -340,7 +346,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 // Steering-based trigger: steering exceeds threshold, hold long enough, speed OK
                 if (!drifting && Math.abs(steering) > cfg.steerThreshold
                         && momentum$kHeldTimer >= cfg.minHoldTicks
-                        && hSpeed > 0.4f && kMcOnGnd) {
+                        && hSpeed > cfg.minSpeedKmh / 72f && kMcOnGnd) {
                     momentum$kDriftActive = true;
                     momentum$kDriftDir    = steering > 0 ? 1 : -1;
                     momentum$kDriftTimer  = 0;
@@ -350,7 +356,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 }
                 // Auto-trigger: random direction after holding long enough without drift starting
                 else if (cfg.autoTriggerTicks > 0 && momentum$kHeldTimer >= cfg.autoTriggerTicks
-                        && !drifting && hSpeed > 0.4f && kMcOnGnd) {
+                        && !drifting && hSpeed > cfg.minSpeedKmh / 72f && kMcOnGnd) {
                     momentum$kDriftActive = true;
                     momentum$kDriftDir    = (Math.random() < 0.5) ? 1 : -1;
                     momentum$kDriftTimer  = 0;
@@ -390,7 +396,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     if (kCfg.boostEnabled && momentum$kDriftTimer >= kCfg.minTicks) {
                         System.out.println("[Momentum-KDrift] BOOST GRANTED timer=" + momentum$kDriftTimer);
                         engineSpeed += kCfg.boost;
-                        boost(0.23f, 9);
+                        boost(0.23f, kCfg.boostDuration);
                     }
                     momentum$kDriftActive = false;
                     momentum$kDriftTimer  = 0;
@@ -516,7 +522,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$mDriftStateMachine(CallbackInfo ci) {
-        boolean mHeld    = momentum$mKey() || (momentum$oKey() && MomentumConfig.get().oDrift.profile == MomentumConfig.ODrift.Profile.M);
+        boolean mHeld    = momentum$mEffectiveKey();
         boolean prevMHeld = momentum$prevMKeyHeld;
         MomentumConfig.MDrift cfg = MomentumConfig.get().mDrift;
         boolean mMcOnGnd = ((Entity)(Object)this).isOnGround();
@@ -635,7 +641,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyMBrake(CallbackInfo ci) {
         if (!MomentumConfig.get().mDrift.brakeEnabled) return;
-        if (!momentum$mKey()) return;
+        if (!momentum$mEffectiveKey()) return;
         if (momentum$mDriftActive) return;
         if (drifting) return;
         float decay = MomentumConfig.get().movement.brakeDecay;
@@ -651,7 +657,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyKBrake(CallbackInfo ci) {
         if (!MomentumConfig.get().kDrift.brakeEnabled) return;
-        if (!momentum$kKey()) return;
+        if (!momentum$kEffectiveKey()) return;
         if (momentum$kDriftActive) return;
         if (momentum$mDriftActive) return;
         if (drifting) return;
