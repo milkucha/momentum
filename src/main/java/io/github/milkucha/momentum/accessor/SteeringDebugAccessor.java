@@ -21,4 +21,5 @@ public interface SteeringDebugAccessor {
     float   momentum$getKDriftOffset();
     boolean momentum$isMDriftActive();
     float   momentum$getMDriftOffset();
+    float   momentum$getEngineSpeed();
 }

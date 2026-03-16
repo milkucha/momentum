@@ -6,8 +6,11 @@
   "description": "An Automobility addon that improves car movement feel and adds a better HUD.",
   "authors": ["milkucha"],
   "license": "MIT",
-  "environment": "client",
+  "environment": "*",
   "entrypoints": {
+    "main": [
+      "io.github.milkucha.momentum.Momentum"
+    ],
     "client": [
       "io.github.milkucha.momentum.MomentumClient"
     ]

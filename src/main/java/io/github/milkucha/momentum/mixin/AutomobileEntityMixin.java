@@ -6,7 +6,9 @@ import io.github.milkucha.momentum.MomentumBrakeState;
 import io.github.milkucha.momentum.MomentumDriftState;
 import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import io.github.milkucha.momentum.config.MomentumConfig;
+import io.github.milkucha.momentum.network.ServerKeyState;
 import net.minecraft.entity.Entity;
+import java.util.UUID;
 import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -109,6 +111,39 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Unique private int     momentum$mHeldTimer     = 0;   // ticks M held without drift active
     @Unique private float   momentum$mSteerAccum    = 0f;  // 0..1 steering time accumulator
 
+    // ── Key-state helpers (client vs. dedicated server) ───────────────────────
+    //
+    // On the client logical side we read the volatile statics set by GLFW polling.
+    // On a dedicated server those statics are always false; instead we look up the
+    // ServerKeyState map populated by the C2S KeyStatePacket.
+
+    @Unique
+    private UUID momentum$getRiderUuid() {
+        Entity rider = ((Entity)(Object)this).getFirstPassenger();
+        return rider != null ? rider.getUuid() : null;
+    }
+
+    @Unique private boolean momentum$brake() {
+        if (((Entity)(Object)this).getWorld().isClient) return MomentumBrakeState.brakeHeld;
+        UUID id = momentum$getRiderUuid(); return id != null && ServerKeyState.getBrake(id);
+    }
+    @Unique private boolean momentum$jKey() {
+        if (((Entity)(Object)this).getWorld().isClient) return MomentumDriftState.driftKeyHeld;
+        UUID id = momentum$getRiderUuid(); return id != null && ServerKeyState.getJ(id);
+    }
+    @Unique private boolean momentum$kKey() {
+        if (((Entity)(Object)this).getWorld().isClient) return MomentumDriftState.kDriftKeyHeld;
+        UUID id = momentum$getRiderUuid(); return id != null && ServerKeyState.getK(id);
+    }
+    @Unique private boolean momentum$nKey() {
+        if (((Entity)(Object)this).getWorld().isClient) return MomentumDriftState.nDriftKeyHeld;
+        UUID id = momentum$getRiderUuid(); return id != null && ServerKeyState.getN(id);
+    }
+    @Unique private boolean momentum$mKey() {
+        if (((Entity)(Object)this).getWorld().isClient) return MomentumDriftState.mKeyHeld;
+        UUID id = momentum$getRiderUuid(); return id != null && ServerKeyState.getM(id);
+    }
+
     // ── Coasting fix ─────────────────────────────────────────────────────────
 
     @Redirect(
@@ -120,7 +155,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         )
     )
     private float momentum$replaceCoastDecay(float value, float rate) {
-        if (MomentumBrakeState.brakeHeld) return value;  // brake inject handles decel this tick
+        if (momentum$brake()) return value;  // brake inject handles decel this tick
         return AUtils.zero(value, MomentumConfig.get().movement.coastDecay);
     }
 
@@ -209,7 +244,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     private void momentum$jDriftTick(CallbackInfo ci) {
         ci.cancel();
 
-        boolean jHeld  = MomentumDriftState.driftKeyHeld;
+        boolean jHeld  = momentum$jKey();
         boolean prevJ  = momentum$prevDriftKeyHeld;
 
         // Log every tick while J is held so we can confirm it's being read
@@ -277,7 +312,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$kDriftStateMachine(CallbackInfo ci) {
-        boolean kHeld     = MomentumDriftState.kDriftKeyHeld;
+        boolean kHeld     = momentum$kKey();
         boolean prevKHeld = momentum$prevKDriftKeyHeld;
         MomentumConfig.KDrift cfg = MomentumConfig.get().kDrift;
 
@@ -324,7 +359,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 momentum$kDriftTimer++;
                 int currentDir = steering > 0 ? 1 : (steering < 0 ? -1 : momentum$kDriftDir);
                 float target = currentDir * cfg.slipAngle;
-                momentum$kDriftOffset = AUtils.shift(momentum$kDriftOffset, 4f, target);
+                momentum$kDriftOffset = AUtils.shift(momentum$kDriftOffset, cfg.slipConvergeRate, target);
                 // Cancel drift if speed drops too low
                 if (hSpeed < 0.3f) {
                     System.out.println("[Momentum-KDrift] CANCELLED (too slow, hSpd=" + hSpeed + ")");
@@ -403,7 +438,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$nDriftTick(CallbackInfo ci) {
-        boolean nHeld  = MomentumDriftState.nDriftKeyHeld;
+        boolean nHeld  = momentum$nKey();
         MomentumConfig cfg = MomentumConfig.get();
         boolean mcOnGnd = ((Entity)(Object)this).isOnGround();
 
@@ -469,7 +504,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$mDriftStateMachine(CallbackInfo ci) {
-        boolean mHeld    = MomentumDriftState.mKeyHeld;
+        boolean mHeld    = momentum$mKey();
         boolean prevMHeld = momentum$prevMKeyHeld;
         MomentumConfig.MDrift cfg = MomentumConfig.get().mDrift;
         boolean mMcOnGnd = ((Entity)(Object)this).isOnGround();
@@ -543,15 +578,14 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 }
             } else {
                 // M released: fade slip angle back to zero, grant boost if sustained (speed-adjusted)
-                MomentumConfig.KDrift kCfg = MomentumConfig.get().kDrift;
-                float mDecay = kCfg.slipDecaySpeedRef > 0
-                    ? kCfg.slipDecay * kCfg.slipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
-                    : kCfg.slipDecay;
+                float mDecay = cfg.slipDecaySpeedRef > 0
+                    ? cfg.slipDecay * cfg.slipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
+                    : cfg.slipDecay;
                 momentum$mDriftOffset = AUtils.zero(momentum$mDriftOffset, mDecay);
                 if (Math.abs(momentum$mDriftOffset) < 0.5f) {
-                    if (cfg.boostEnabled && momentum$mDriftTimer >= kCfg.minTicks) {
+                    if (cfg.boostEnabled && momentum$mDriftTimer >= cfg.minTicks) {
                         System.out.println("[Momentum-MDrift] BOOST GRANTED timer=" + momentum$mDriftTimer);
-                        engineSpeed += kCfg.boost;
+                        engineSpeed += cfg.boost;
                         boost(0.23f, 9);
                     }
                     momentum$mDriftActive = false;
@@ -589,7 +623,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyMBrake(CallbackInfo ci) {
-        if (!MomentumDriftState.mKeyHeld) return;
+        if (!momentum$mKey()) return;
         if (momentum$mDriftActive) return;
         if (drifting) return;
         float decay = MomentumConfig.get().movement.brakeDecay;
@@ -623,7 +657,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyBrake(CallbackInfo ci) {
-        if (!MomentumBrakeState.brakeHeld) return;
+        if (!momentum$brake()) return;
         if (drifting) return;  // braking reduces hSpeed which would cancel the drift
         float decay = MomentumConfig.get().movement.brakeDecay;
         engineSpeed = Math.max(engineSpeed - decay, -0.25f);
@@ -649,4 +683,5 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     @Unique @Override public float   momentum$getKDriftOffset()     { return momentum$kDriftOffset; }
     @Unique @Override public boolean momentum$isMDriftActive()      { return momentum$mDriftActive; }
     @Unique @Override public float   momentum$getMDriftOffset()     { return momentum$mDriftOffset; }
+    @Unique @Override public float   momentum$getEngineSpeed()      { return engineSpeed; }
 }

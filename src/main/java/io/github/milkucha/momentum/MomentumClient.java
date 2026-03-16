@@ -3,7 +3,9 @@ package io.github.milkucha.momentum;
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
 import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import io.github.milkucha.momentum.config.MomentumConfig;
+import io.github.milkucha.momentum.hud.BarHud;
 import io.github.milkucha.momentum.hud.MomentumHud;
+import io.github.milkucha.momentum.network.KeyStatePacket;
 import io.github.milkucha.momentum.sound.BrakingSkidSound;
 import io.github.milkucha.momentum.sound.JDriftSkidSound;
 import io.github.milkucha.momentum.sound.KDriftSkidSound;
@@ -12,9 +14,12 @@ import io.github.milkucha.momentum.sound.NDriftSkidSound;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
@@ -26,13 +31,27 @@ public class MomentumClient implements ClientModInitializer {
     private boolean prevNDriftKeyHeld  = false;
     private boolean prevMDriftActive   = false;
     private float   cameraDriftYawOffset = 0f;
+    private float   brakeZoomVelocity    = 0f;
+    private float   prevHSpeed           = 0f;
+
+    // Last key-state snapshot sent to the server; used to send only on changes.
+    private boolean pktBrake = false;
+    private boolean pktJ     = false;
+    private boolean pktK     = false;
+    private boolean pktN     = false;
+    private boolean pktM     = false;
 
     @Override
     public void onInitializeClient() {
         MomentumConfig.get();
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) ->
-                MomentumHud.render(drawContext, tickDelta));
+        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
+            if (MomentumConfig.get().hud.useBarHud) {
+                BarHud.render(drawContext, tickDelta);
+            } else {
+                MomentumHud.render(drawContext, tickDelta);
+            }
+        });
 
         KeyBinding reloadKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.momentum.reload_config",
@@ -63,6 +82,21 @@ public class MomentumClient implements ClientModInitializer {
                 MomentumDriftState.nDriftKeyHeld = false;
                 MomentumDriftState.mKeyHeld      = false;
             }
+
+            // Send key state to server whenever any value changes.
+            // Guards: network handler must exist (player is connected).
+            boolean nb = MomentumBrakeState.brakeHeld;
+            boolean nj = MomentumDriftState.driftKeyHeld;
+            boolean nk = MomentumDriftState.kDriftKeyHeld;
+            boolean nn = MomentumDriftState.nDriftKeyHeld;
+            boolean nm = MomentumDriftState.mKeyHeld;
+            if (client.getNetworkHandler() != null
+                    && (nb != pktBrake || nj != pktJ || nk != pktK || nn != pktN || nm != pktM)) {
+                pktBrake = nb; pktJ = nj; pktK = nk; pktN = nn; pktM = nm;
+                PacketByteBuf buf = PacketByteBufs.create();
+                new KeyStatePacket(nb, nj, nk, nn, nm).write(buf);
+                ClientPlayNetworking.send(KeyStatePacket.ID, buf);
+            }
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -80,7 +114,8 @@ public class MomentumClient implements ClientModInitializer {
                 // lerp on exit (snappy return to car heading).
                 float combinedDriftOffset = accessor.momentum$getKDriftOffset()
                                           + accessor.momentum$getMDriftOffset();
-                float targetCameraOffset = combinedDriftOffset * cfg.camera.driftScale;
+                float targetCameraOffset = cfg.camera.driftCamera
+                        ? combinedDriftOffset * cfg.camera.driftScale : 0f;
                 boolean kActive = accessor.momentum$isKDriftActive() || accessor.momentum$isMDriftActive();
                 float cameraLerp = kActive ? cfg.camera.driftLerpIn : cfg.camera.driftLerpOut;
                 cameraDriftYawOffset += (targetCameraOffset - cameraDriftYawOffset) * cameraLerp;
@@ -96,14 +131,22 @@ public class MomentumClient implements ClientModInitializer {
                 }
                 prevBrakeHeld = brakeHeld;
 
-                // Brake zoom: lerp FOV offset toward brakeZoomFov whenever any key is braking.
-                // N always brakes while held; M brakes while held and not in a slip-angle drift.
-                boolean anyBraking = brakeHeld
-                    || MomentumDriftState.nDriftKeyHeld
-                    || (MomentumDriftState.mKeyHeld && !accessor.momentum$isMDriftActive());
-                float brakeZoomTarget = anyBraking ? cfg.camera.brakeZoomFov : 0f;
-                MomentumBrakeState.brakeZoomOffset +=
-                    (brakeZoomTarget - MomentumBrakeState.brakeZoomOffset) * cfg.camera.brakeZoomLerp;
+                // Brake zoom — spring-damper driven by deceleration.
+                // Deceleration (drop in hSpeed this tick) acts as a force on the zoom "mass".
+                // The spring returns zoom to zero; damping prevents runaway.
+                // When the vehicle stops, accumulated velocity carries the zoom forward briefly
+                // before the spring pulls it back — the inertia-body feel.
+                float hSpd = accessor.momentum$getHSpeed();
+                float decel = Math.max(0f, prevHSpeed - hSpd); // positive only while slowing
+                prevHSpeed = hSpd;
+                float inputForce = decel * cfg.camera.brakeZoomInputScale;
+                brakeZoomVelocity = brakeZoomVelocity * cfg.camera.brakeZoomDamping
+                    + inputForce
+                    - cfg.camera.brakeZoomSpring * MomentumBrakeState.brakeZoomOffset;
+                MomentumBrakeState.brakeZoomOffset += brakeZoomVelocity;
+                // Clamp to [0, brakeZoomFov] — no negative zoom-out and no runaway
+                MomentumBrakeState.brakeZoomOffset = Math.max(0f,
+                    Math.min(cfg.camera.brakeZoomFov, MomentumBrakeState.brakeZoomOffset));
 
                 boolean jDriftActive = accessor.momentum$isDrifting();
                 if (jDriftActive && !prevJDriftActive) {
@@ -134,7 +177,9 @@ public class MomentumClient implements ClientModInitializer {
                 prevKDriftActive     = false;
                 prevNDriftKeyHeld    = false;
                 prevMDriftActive     = false;
-                cameraDriftYawOffset        = 0f;
+                cameraDriftYawOffset               = 0f;
+                brakeZoomVelocity                  = 0f;
+                prevHSpeed                         = 0f;
                 MomentumBrakeState.brakeZoomOffset = 0f;
             }
         });

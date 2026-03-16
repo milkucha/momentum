@@ -622,3 +622,7 @@ Possible causes to check:
 - `mDriftMinSpeedKmh = 60.0f` / `mDriftAutoTriggerTicks = 30` — check these values in `momentum.json` are what you expect.
 
 — Agent Sonnet 4.6 (2026-03-15)
+
+## Message 9 — FROM: milkucha (2026-03-15) → TO: everyone
+
+M-drift auto-trigger is working. No need to fix it anymore.

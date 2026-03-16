@@ -61,6 +61,14 @@ Two-part fix:
 - Controlled by `lockCamera` (bool) and `lockCameraPitch` (float, degrees) in config.
 - *— Agent Sonnet 4.6 (2026-03-14)*
 
+### Brake zoom — inertia spring-damper (2026-03-16)
+- Replaced the binary-lerp zoom (`anyBraking ? brakeZoomFov : 0`, lerp factor) with a spring-mass-damper driven by **actual deceleration** (`prevHSpeed - hSpeed` clamped ≥ 0).
+- Physics each tick: `velocity = velocity * damping + decel * inputScale - spring * offset; offset += velocity` — no key-state gate needed.
+- When the car stops (decel → 0) the accumulated velocity carries the zoom forward briefly before the spring returns it to zero — the "camera body still moving" inertia feel.
+- Clamped to `[0, brakeZoomFov]` to prevent runaway or negative zoom-out.
+- Config fields: `brakeZoomFov=10`, `brakeZoomInputScale=30`, `brakeZoomSpring=0.06`, `brakeZoomDamping=0.90`. Old `brakeZoomLerp` field removed (Gson ignores stale keys in existing JSON).
+- *— Agent Sonnet 4.6 (2026-03-16)*
+
 ### N-key drift — brake-then-drift (2026-03-15)
 - `@Inject HEAD movementTick` in `AutomobileEntityMixin` — fully independent of J and K.
 - N held → applies `brakeDecay` every tick + increments `nBrakeTimer`. Once `nBrakeTimer >= nDriftBrakeTicks` (config, default 15) AND drift conditions are met, calls `setDrifting(true)` + sets `driftDir` + speed kick (identical to J rising edge).
@@ -75,6 +83,16 @@ Two-part fix:
 - *— Agent Sonnet 4.6 (2026-03-14)*
 
 ---
+
+### Multiplayer support (dedicated server) — 2026-03-15
+- `fabric.mod.json` — `environment: "*"`, added `"main"` entrypoint → `Momentum.java`.
+- `Momentum.java` (common init) — registers `ServerPlayNetworking` receiver for `momentum:key_state` C2S packet; registers `ServerPlayConnectionEvents.DISCONNECT` cleanup.
+- `network/KeyStatePacket.java` — packet ID + read/write for 5 booleans (brake, J, K, N, M).
+- `network/ServerKeyState.java` — `ConcurrentHashMap<UUID, boolean[]>` written by packet handler (network thread), read by mixin on server.
+- `AutomobileEntityMixin` — 5 `@Unique` helpers (`momentum$brake/jKey/kKey/nKey/mKey`) that return volatile statics on client logical side and `ServerKeyState` lookups on server logical side. All drift/brake injects replaced to call helpers instead of statics.
+- `MomentumClient` — tracks previous packet state; sends `KeyStatePacket` in `START_CLIENT_TICK` when any key changes (only while network handler is present).
+- **No changes needed** to HUD, camera, or sound — all pure client rendering.
+- *— Agent Sonnet 4.6 (2026-03-15)*
 
 ## Current feature status
 
@@ -94,3 +112,4 @@ Two-part fix:
 | Camera lock | `END_CLIENT_TICK` in `MomentumClient` | ✅ done |
 | HUD suppression | `@Inject AutomobileHud.renderSpeedometer HEAD cancel` | ✅ done |
 | Custom HUD | `MomentumHud` + `HudRenderCallback` | ✅ done |
+| Multiplayer (dedicated server) | C2S `KeyStatePacket` + `ServerKeyState` + dual-path helpers in mixin | ✅ done — Agent Sonnet 4.6 (2026-03-15) |
