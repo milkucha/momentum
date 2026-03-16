@@ -18,6 +18,7 @@ import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -166,11 +167,36 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         )
     )
     private float momentum$replaceCoastDecay(float value, float rate) {
+        if (!MomentumConfig.get().enabled) return AUtils.zero(value, 0.025f);
         if (momentum$brake()) return value;  // brake inject handles decel this tick
         return AUtils.zero(value, MomentumConfig.get().movement.coastDecay);
     }
 
     // ── Acceleration scale ────────────────────────────────────────────────────
+
+    /**
+     * Bypasses Automobility's steering acceleration gate.
+     *
+     * movementTick() contains a ternary that suppresses normal acceleration when:
+     *   (!drifting && steering != 0 && hSpeed > 0.5)
+     * capping engineSpeed increment to 0.001 while cornering above ~36 km/h.
+     *
+     * Replacing the 0.5f threshold with Float.MAX_VALUE makes hSpeed > Float.MAX_VALUE
+     * permanently false, so calculateAcceleration() is always called while steering.
+     * The drift branch of the same ternary (drifting && haveSameSign) uses no float
+     * constant and is unaffected.
+     *
+     * Momentum's understeer system already handles speed-based corner resistance,
+     * so this gate is redundant and undesirable.
+     */
+    @ModifyConstant(
+        method = "movementTick",
+        constant = @Constant(doubleValue = 0.5)
+    )
+    private double momentum$removeSteeringAccelGate(double original) {
+        if (!MomentumConfig.get().enabled) return original;
+        return Double.MAX_VALUE;
+    }
 
     @ModifyArg(
         method = "movementTick",
@@ -181,6 +207,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         index = 0
     )
     private float momentum$scaleAcceleration(float speed) {
+        if (!MomentumConfig.get().enabled) return speed;
         return speed / MomentumConfig.get().movement.accelerationScale;
     }
 
@@ -196,6 +223,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         constant = @Constant(floatValue = 0.42f)
     )
     private float momentum$steeringRampRate(float original) {
+        if (!MomentumConfig.get().enabled) return original;
         if (drifting) return original;
         if (steeringLeft || steeringRight) return MomentumConfig.get().steering.rampRate;
         return MomentumConfig.get().steering.centerRate;
@@ -229,6 +257,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         index = 2
     )
     private float momentum$applyUndersteer(float target) {
+        if (!MomentumConfig.get().enabled) return target;
         if (drifting || momentum$kDriftActive || momentum$mDriftActive) return target;
         MomentumConfig.Steering s = MomentumConfig.get().steering;
         float speedCurved = (float) Math.pow(Math.abs(hSpeed), s.understeerCurve);
@@ -254,6 +283,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "driftingTick", at = @At("HEAD"), cancellable = true)
     private void momentum$jDriftTick(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         ci.cancel();
 
         boolean jHeld  = momentum$jKey() || (momentum$oKey() && MomentumConfig.get().oDrift.profile == MomentumConfig.ODrift.Profile.J);
@@ -324,6 +354,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$kDriftStateMachine(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         boolean kHeld     = momentum$kEffectiveKey();
         boolean prevKHeld = momentum$prevKDriftKeyHeld;
         MomentumConfig.KDrift cfg = MomentumConfig.get().kDrift;
@@ -374,6 +405,13 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 // Maintain slip angle while K held.
                 // Use current steering direction so slip angle can be redirected mid-drift.
                 momentum$kDriftTimer++;
+                if (cfg.boostEnabled) {
+                    int t = momentum$kDriftTimer, min = cfg.minTicks;
+                    if      (t >= min + 40) turboCharge = AutomobileEntity.LARGE_TURBO_TIME + 1;
+                    else if (t >= min + 20) turboCharge = AutomobileEntity.MEDIUM_TURBO_TIME + 1;
+                    else if (t >= min)      turboCharge = AutomobileEntity.SMALL_TURBO_TIME + 1;
+                    else                    turboCharge = 0;
+                }
                 int currentDir = steering > 0 ? 1 : (steering < 0 ? -1 : momentum$kDriftDir);
                 float target = currentDir * cfg.slipAngle;
                 momentum$kDriftOffset = AUtils.shift(momentum$kDriftOffset, cfg.slipConvergeRate, target);
@@ -384,6 +422,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     momentum$kDriftTimer  = 0;
                     momentum$kDriftOffset = 0f;
                     momentum$kHeldTimer   = 0;
+                    turboCharge = 0;
                 }
             } else {
                 // K released: fade slip angle back to zero (speed-adjusted)
@@ -398,6 +437,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                         engineSpeed += kCfg.boost;
                         boost(0.23f, kCfg.boostDuration);
                     }
+                    turboCharge = 0;
                     momentum$kDriftActive = false;
                     momentum$kDriftTimer  = 0;
                     momentum$kDriftOffset = 0f;
@@ -416,6 +456,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyKDriftSlip(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         if (!momentum$kDriftActive || Math.abs(momentum$kDriftOffset) < 0.01f) return;
         Entity self = (Entity)(Object)this;
         Vec3d mov = self.getVelocity();
@@ -456,6 +497,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$nDriftTick(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         boolean nHeld  = momentum$nKey();
         MomentumConfig cfg = MomentumConfig.get();
         boolean mcOnGnd = ((Entity)(Object)this).isOnGround();
@@ -522,6 +564,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("HEAD"))
     private void momentum$mDriftStateMachine(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         boolean mHeld    = momentum$mEffectiveKey();
         boolean prevMHeld = momentum$prevMKeyHeld;
         MomentumConfig.MDrift cfg = MomentumConfig.get().mDrift;
@@ -572,6 +615,13 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
 
             if (mHeld) {
                 momentum$mDriftTimer++;
+                if (cfg.boostEnabled) {
+                    int t = momentum$mDriftTimer, min = cfg.minTicks;
+                    if      (t >= min + 40) turboCharge = AutomobileEntity.LARGE_TURBO_TIME + 1;
+                    else if (t >= min + 20) turboCharge = AutomobileEntity.MEDIUM_TURBO_TIME + 1;
+                    else if (t >= min)      turboCharge = AutomobileEntity.SMALL_TURBO_TIME + 1;
+                    else                    turboCharge = 0;
+                }
                 // Advance or retreat the steering accumulator based on whether player is steering.
                 if (Math.abs(steering) > 0.05f) {
                     momentum$mSteerAccum = Math.min(1.0f, momentum$mSteerAccum + cfg.steerBuildRate);
@@ -588,6 +638,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 momentum$mDriftOffset += (target - momentum$mDriftOffset) * cfg.slipConvergeRate;
                 if (hSpeed < 0.3f) {
                     System.out.println("[Momentum-MDrift] CANCELLED (too slow, hSpd=" + hSpeed + ")");
+                    turboCharge = 0;
                     momentum$mDriftActive = false;
                     momentum$mDriftTimer  = 0;
                     momentum$mDriftOffset = 0f;
@@ -605,6 +656,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                         engineSpeed += cfg.boost;
                         boost(0.23f, cfg.boostDuration);
                     }
+                    turboCharge = 0;
                     momentum$mDriftActive = false;
                     momentum$mDriftTimer  = 0;
                     momentum$mDriftOffset = 0f;
@@ -621,6 +673,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyMDriftSlip(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         if (!momentum$mDriftActive || Math.abs(momentum$mDriftOffset) < 0.01f) return;
         Entity self = (Entity)(Object)this;
         Vec3d mov = self.getVelocity();
@@ -640,6 +693,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyMBrake(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         if (!MomentumConfig.get().mDrift.brakeEnabled) return;
         if (!momentum$mEffectiveKey()) return;
         if (momentum$mDriftActive) return;
@@ -656,6 +710,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyKBrake(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         if (!MomentumConfig.get().kDrift.brakeEnabled) return;
         if (!momentum$kEffectiveKey()) return;
         if (momentum$kDriftActive) return;
@@ -666,6 +721,59 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     }
 
     // ── Brake ────────────────────────────────────────────────────────────────
+
+    /**
+     * Intercepts the `back` parameter of provideClientInput and forces it to false
+     * when Momentum is enabled.
+     *
+     * provideClientInput compares `back` against this.braking; if they differ it
+     * calls setInputs (setting this.braking = back) and sends a C2S packet.
+     * By making `back = false` here, Automobility itself clears this.braking to
+     * false and propagates that via its own packet — so neither the client entity
+     * nor the server entity ever sees braking = true while Momentum is on.
+     *
+     * This cleanly suppresses ALL braking-dependent logic in one place:
+     *   - the Math.max decay block in movementTick (if braking)
+     *   - burnoutTick's setBurningOut trigger (if braking && moving)
+     *   - any other Automobility code that reads this.braking
+     */
+    @ModifyVariable(
+        method = "provideClientInput",
+        at = @At("HEAD"),
+        index = 2,
+        remap = false
+    )
+    private boolean momentum$suppressVanillaBackInput(boolean back) {
+        if (!MomentumConfig.get().enabled) return back;
+        return false;
+    }
+
+    /**
+     * Suppresses Automobility's own braking decay while Momentum is enabled.
+     *
+     * Automobility's movementTick() contains (inside the `if (this.braking)` block):
+     *   this.engineSpeed = Math.max(this.engineSpeed - 0.15f, -0.25f);
+     * This fires whenever the player holds the vanilla "back" key (S by default).
+     *
+     * When Momentum is enabled we own all braking through momentum$applyBrake
+     * (the @Inject at RETURN below). Returning `engineSpeed` unchanged here makes
+     * the assignment a no-op, so the vanilla 0.15f/tick decay is fully suppressed
+     * regardless of which key is configured as the Momentum brake.
+     *
+     * When Momentum is disabled the vanilla decay runs normally.
+     */
+    @Redirect(
+        method = "movementTick",
+        at = @At(
+            value = "INVOKE",
+            target = "Ljava/lang/Math;max(FF)F",
+            ordinal = 3
+        )
+    )
+    private float momentum$suppressVanillaBrakeDecay(float a, float b) {
+        if (!MomentumConfig.get().enabled) return Math.max(a, b);
+        return engineSpeed;  // no-op: Momentum's @Inject at RETURN owns braking
+    }
 
     /**
      * Applies linear braking directly to engineSpeed at the end of movementTick,
@@ -690,11 +798,12 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
      */
     @Inject(method = "movementTick", at = @At("RETURN"))
     private void momentum$applyBrake(CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         if (!momentum$brake()) return;
         if (drifting) return;  // braking reduces hSpeed which would cancel the drift
         float decay = MomentumConfig.get().movement.brakeDecay;
         engineSpeed = Math.max(engineSpeed - decay, -0.25f);
-        System.out.println("[Momentum-Brake] Space braking | engSpd=" + engineSpeed
+        System.out.println("[Momentum-Brake] braking | engSpd=" + engineSpeed
             + " hSpd=" + hSpeed + " steer=" + steering
             + " drifting=" + drifting);
     }

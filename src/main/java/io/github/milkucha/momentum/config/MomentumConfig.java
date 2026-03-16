@@ -10,6 +10,10 @@ import java.nio.file.Path;
 
 public class MomentumConfig {
 
+    public boolean enabled   = true;
+    public int     brakeKey  = 83;  // GLFW_KEY_S
+    public int     oDriftKey = 32;  // GLFW_KEY_SPACE
+
     public Movement movement = new Movement();
     public Steering steering = new Steering();
     public Camera  camera   = new Camera();
@@ -19,12 +23,13 @@ public class MomentumConfig {
     public MDrift  mDrift   = new MDrift();
     public NDrift  nDrift   = new NDrift();
     public ODrift  oDrift   = new ODrift();
+    public Sound   sound    = new Sound();
 
     // ── Groups ────────────────────────────────────────────────────────────────
 
     public static class Movement {
         public float coastDecay               = 0.009f;
-        public float accelerationScale        = 3.7f;
+        public float accelerationScale        = 5.5f;
         public float brakeDecay               = 0.03f;
         public float comfortableSpeedMultiplier = 1.55f;
     }
@@ -39,7 +44,7 @@ public class MomentumConfig {
     public static class Camera {
         public boolean lock               = true;
         public float   pitch              = 10f;
-        public float   brakeZoomFov       = 10f;   // max FOV reduction clamp (degrees)
+        public float   brakeZoomFov       = 0f;    // max FOV reduction clamp (degrees)
         // Spring-damper brake zoom: deceleration (hSpeed delta/tick) drives a mass-spring camera.
         // When the vehicle stops, accumulated velocity carries the zoom briefly — inertia feel.
         public float   brakeZoomInputScale = 30f;  // decel units → zoom force multiplier
@@ -65,7 +70,7 @@ public class MomentumConfig {
         public int   debugX           = -1;
         public int   debugY           = 10;
         public int   debugMarginRight = 10;
-        public boolean debug          = true;
+        public boolean debug          = false;
     }
 
     public static class BarHud {
@@ -105,25 +110,25 @@ public class MomentumConfig {
         public float   slipAngle         = 3f;
         public float   slipConvergeRate  = 4f;    // deg/tick the offset converges toward target while held
         public float   slipDecay         = 0.9f;
-        public float   slipDecaySpeedRef = 0.2f;
+        public float   slipDecaySpeedRef = 0.41f;
         public float   boost             = 0.04f;
-        public int     boostDuration     = 9;
-        public int     minTicks          = 15;
-        public boolean boostEnabled      = false;
-        public boolean brakeEnabled      = false;
-        public float   steerThreshold    = 0.0f;  // minimum |steering| to start drift (0 = any non-zero)
+        public int     boostDuration     = 44;
+        public int     minTicks          = 60;
+        public boolean boostEnabled      = true;
+        public boolean brakeEnabled      = true;
+        public float   steerThreshold    = 0.1f;  // minimum |steering| to start drift (0 = any non-zero)
         public int     minHoldTicks      = 0;     // ticks K must be held before drift can start
-        public int     autoTriggerTicks  = 0;     // ticks before auto-start in random direction (0 = disabled)
-        public float   minSpeedKmh       = 28.8f; // minimum speed to start drift (0.4 hSpeed * 72)
+        public int     autoTriggerTicks  = 8;     // ticks before auto-start in random direction (0 = disabled)
+        public float   minSpeedKmh       = 45.0f; // minimum speed to start drift
         public boolean cameraEnabled     = true;
-        public float   cameraScale       = 2.0f;
+        public float   cameraScale       = 10.0f;
         public float   cameraLerpIn      = 0.1f;
         public float   cameraLerpOut     = 0.1f;
     }
 
     public static class MDrift {
-        public float   slipAngle         = 30f;
-        public float   slipConvergeRate  = 0.15f; // fraction of remaining distance closed per tick (exponential ease-out toward target)
+        public float   slipAngle         = 33f;
+        public float   slipConvergeRate  = 0.18f; // fraction of remaining distance closed per tick (exponential ease-out toward target)
         public float   slipDecay         = 1.3f;  // deg/tick removed on release (linear, same formula as K-drift)
         public float   slipDecaySpeedRef = 0.6f;  // reference speed for speed-adjusted decay
         public float   boost             = 0.04f; // engine speed bonus on clean release
@@ -131,24 +136,30 @@ public class MomentumConfig {
         public int     minTicks          = 60;    // minimum ticks held to earn boost
         public float   steerSensitivity  = 2.0f;
         // How fast the steering accumulator (0..1) climbs per tick while steering is held.
-        public float   steerBuildRate    = 0.05f;
+        public float   steerBuildRate    = 0.08f;
         // How fast the accumulator falls per tick when steering is released mid-drift.
-        public float   steerDecayRate    = 0.01f;
+        public float   steerDecayRate    = 0.118f;
         public boolean constantAngle     = false;
         public int     minHoldTicks      = 0;
-        public int     autoTriggerTicks  = 25;
+        public int     autoTriggerTicks  = 10;
         public float   steerThreshold    = 0.7f;
         public float   minSpeedKmh       = 45.0f;
         public boolean boostEnabled      = true;
         public boolean brakeEnabled      = true;
         public boolean cameraEnabled     = true;
-        public float   cameraScale       = 2.0f;
-        public float   cameraLerpIn      = 0.1f;
-        public float   cameraLerpOut     = 0.1f;
+        public float   cameraScale       = 1.8f;
+        public float   cameraLerpIn      = 0.18f;
+        public float   cameraLerpOut     = 0.25f;
     }
 
     public static class NDrift {
-        public int brakeTicks = 15;
+        public int brakeTicks = 7;
+    }
+
+    public static class Sound {
+        // km/h at which the engine sound reaches its pitch ceiling (Minecraft clamps pitch at 2.0).
+        // Original Automobility value: ~91.7. Raise to hear pitch-bend continue to higher speeds.
+        public float enginePitchCeiling = 120.0f;
     }
 
     public static class ODrift {
@@ -189,6 +200,9 @@ public class MomentumConfig {
                     if (loaded.mDrift   == null) loaded.mDrift   = new MDrift();
                     if (loaded.nDrift   == null) loaded.nDrift   = new NDrift();
                     if (loaded.oDrift   == null) loaded.oDrift   = new ODrift();
+                    if (loaded.sound    == null) loaded.sound    = new Sound();
+                    if (loaded.brakeKey  == 0) loaded.brakeKey  = 83;
+                    if (loaded.oDriftKey == 0) loaded.oDriftKey = 32;
                     loaded.save();
                     return loaded;
                 }

@@ -48,7 +48,9 @@ public class MomentumClient implements ClientModInitializer {
         MomentumConfig.get();
 
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
-            if (MomentumConfig.get().hud.useBarHud) {
+            MomentumConfig cfg = MomentumConfig.get();
+            if (!cfg.enabled) return;
+            if (cfg.hud.useBarHud) {
                 BarHud.render(drawContext, tickDelta);
             } else {
                 MomentumHud.render(drawContext, tickDelta);
@@ -74,8 +76,9 @@ public class MomentumClient implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity) {
                 long win = client.getWindow().getHandle();
+                MomentumConfig keyCfg = MomentumConfig.get();
                 MomentumBrakeState.brakeHeld =
-                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+                    GLFW.glfwGetKey(win, keyCfg.brakeKey) == GLFW.GLFW_PRESS;
                 MomentumDriftState.driftKeyHeld =
                     GLFW.glfwGetKey(win, GLFW.GLFW_KEY_J) == GLFW.GLFW_PRESS;
                 MomentumDriftState.kDriftKeyHeld =
@@ -85,7 +88,7 @@ public class MomentumClient implements ClientModInitializer {
                 MomentumDriftState.mKeyHeld =
                     GLFW.glfwGetKey(win, GLFW.GLFW_KEY_M) == GLFW.GLFW_PRESS;
                 MomentumDriftState.oKeyHeld =
-                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_O) == GLFW.GLFW_PRESS;
+                    GLFW.glfwGetKey(win, keyCfg.oDriftKey) == GLFW.GLFW_PRESS;
             } else {
                 MomentumBrakeState.brakeHeld = false;
                 MomentumDriftState.driftKeyHeld = false;
@@ -125,6 +128,20 @@ public class MomentumClient implements ClientModInitializer {
             if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity auto) {
                 MomentumConfig cfg = MomentumConfig.get();
                 SteeringDebugAccessor accessor = (SteeringDebugAccessor) auto;
+
+                if (!cfg.enabled) {
+                    prevBrakeHeld        = false;
+                    prevJDriftActive     = false;
+                    prevKDriftActive     = false;
+                    prevNDriftKeyHeld    = false;
+                    prevMDriftActive     = false;
+                    kCameraDriftYawOffset              = 0f;
+                    mCameraDriftYawOffset              = 0f;
+                    brakeZoomVelocity                  = 0f;
+                    prevHSpeed                         = 0f;
+                    MomentumBrakeState.brakeZoomOffset = 0f;
+                    return;
+                }
 
                 // Independent camera lerp for K-drift and M-drift.
                 // Each drift's contribution is tracked separately so scale/lerp settings don't interfere.

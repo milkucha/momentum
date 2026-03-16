@@ -55,8 +55,8 @@ public class BarHud {
 
         // How many segments fit and how many should be lit
         int numBars         = (b.totalWidth + b.barSpacing) / (b.barWidth + b.barSpacing);
-        int engineBars      = (int) Math.round(Math.min(engineKmh / b.maxSpeedKmh, 1.0) * numBars);
-        int totalFilledBars = (int) Math.round(Math.min(speedKmh  / b.maxSpeedKmh, 1.0) * numBars);
+        int engineBars      = Math.max(1, (int) Math.round(Math.min(engineKmh / b.maxSpeedKmh, 1.0) * numBars));
+        int totalFilledBars = Math.max(1, (int) Math.round(Math.min(speedKmh  / b.maxSpeedKmh, 1.0) * numBars));
 
         for (int i = 0; i < totalFilledBars; i++) {
             int bx    = originX + i * (b.barWidth + b.barSpacing);

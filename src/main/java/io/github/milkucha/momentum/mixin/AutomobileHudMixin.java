@@ -2,6 +2,7 @@ package io.github.milkucha.momentum.mixin;
 
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
 import io.github.foundationgames.automobility.screen.AutomobileHud;
+import io.github.milkucha.momentum.config.MomentumConfig;
 import net.minecraft.client.gui.DrawContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -31,6 +32,7 @@ public abstract class AutomobileHudMixin {
             DrawContext graphics,
             AutomobileEntity auto,
             CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         ci.cancel();
     }
 
@@ -43,6 +45,7 @@ public abstract class AutomobileHudMixin {
             DrawContext graphics,
             float alpha,
             CallbackInfo ci) {
+        if (!MomentumConfig.get().enabled) return;
         ci.cancel();
     }
 }

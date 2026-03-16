@@ -78,6 +78,44 @@ Two-part fix:
 - New config field: `nDriftBrakeTicks = 15`.
 - *— Agent Sonnet 4.6 (2026-03-15)*
 
+### O-key drift shortcut (2026-03-16)
+- `MomentumConfig.oDrift.profile` — enum `{ J, K, M }`, default `K`. Selects which drift type the configurable O key activates.
+- `oDriftKey` (int, default `79` = GLFW_KEY_O) — configurable in YACL "General" category via `KeyCodeControllerBuilder`.
+- `MomentumDriftState.oKeyHeld` volatile static, polled in `START_CLIENT_TICK` alongside the other keys.
+- Two effective-key helpers in mixin: `momentum$kEffectiveKey()` = `kKey || (oKey && profile==K)`, `momentum$mEffectiveKey()` = `mKey || (oKey && profile==M)`. J-drift already reads `oKey && profile==J` inline.
+- `KeyStatePacket` extended to 6 booleans (brake, J, K, N, M, O). `ServerKeyState` has a matching `getO()` getter. `pktO` snapshot field added to `MomentumClient`.
+- YACL "Drift" category dynamically rebuilds its groups based on `oDrift.profile` — K shows K-drift groups, M shows M-drift groups, J shows nothing (Automobility defaults). Profile listener rebuilds screen on change.
+- *— Agent Sonnet 4.6 (2026-03-16)*
+
+### Steering center rate — separate from ramp rate (2026-03-16)
+- `MomentumConfig.Steering.centerRate` added (default `0.42f`). Controls how fast steering returns to centre when no key is held.
+- `@ModifyConstant(0.42f)` in `steeringTick` now returns `steering.rampRate` when `steeringLeft || steeringRight`, and `steering.centerRate` otherwise (and `original` during a drift as before).
+- Old behaviour was a single 0.42f replacement for both directions; the two fields now let players tune snap-back independently.
+- *— Agent Sonnet 4.6 (2026-03-16)*
+
+### Acceleration steering gate removal (2026-03-16)
+- Automobility's `movementTick` suppresses normal acceleration with `calculateAcceleration` when `!drifting && steering != 0 && hSpeed > 0.5` — capping engineSpeed increment to 0.001 while cornering above ~36 km/h.
+- Added `@ModifyConstant(doubleValue = 0.5)` in `movementTick` → returns `Double.MAX_VALUE` when Momentum is enabled, making `hSpeed > Double.MAX_VALUE` permanently false. The gate is bypassed entirely.
+- Momentum's understeer system already handles speed-based corner resistance; the gate was redundant and caused sluggish corner acceleration.
+- *— Agent Sonnet 4.6 (2026-03-16)*
+
+### Bar HUD (2026-03-16)
+- `MomentumConfig.BarHud` inner class — position (`x`, `y`, `marginRight`, `marginBottom`), size (`totalWidth`, `totalHeight`, `barWidth`, `barSpacing`), `maxSpeedKmh` cap, `barColor`, `boostBarColor`, `textColor`, text offset.
+- `hud.useBarHud` bool toggle (default `true`) selects bar HUD vs. the legacy texture HUD at render time.
+- `BarHud.render()` draws a row of rectangular segments; filled count ∝ `hSpeed * 72 / maxSpeedKmh`. Segments above `engineSpeed / hSpeed` ratio are drawn in `boostBarColor` to show the boost contribution separately.
+- Speed text rendered above or beside the bar at configurable offsets.
+- All bar HUD fields exposed in the YACL "HUD" category under `Bar | Position`, `Bar | Size`, `Bar | Colors`, and `Bar | Text Position` groups.
+- *— Agent Sonnet 4.6 (2026-03-16)*
+
+### YACL in-game config screen (2026-03-16)
+- `MomentumConfigScreen.create(parent)` builds a full YACL screen with six categories: General, Drift (O-key), Movement, Steering, Camera, HUD.
+- `openOptionsKey` (default `.`) registered in `MomentumClient`; `END_CLIENT_TICK` opens the screen on press.
+- All config fields exposed as typed options (`FloatSlider`, `IntegerSlider`, `Boolean`, `KeyCode`, `Color`).
+- Boost and Camera sub-groups use `addListener` + `setAvailable(false)` to grey out dependent options when the parent toggle is off.
+- M-drift `constantAngle` toggle greys out `slipConvergeRate` when on.
+- Screen saves config via `cfg::save` on YACL's built-in save button.
+- *— Agent Sonnet 4.6 (2026-03-16)*
+
 ### Bash permissions
 - `.claude/settings.json` created with `"allow": ["Bash(*)"]` — all agents can run bash without per-command approval.
 - *— Agent Sonnet 4.6 (2026-03-14)*
@@ -93,6 +131,19 @@ Two-part fix:
 - `MomentumClient` — tracks previous packet state; sends `KeyStatePacket` in `START_CLIENT_TICK` when any key changes (only while network handler is present).
 - **No changes needed** to HUD, camera, or sound — all pure client rendering.
 - *— Agent Sonnet 4.6 (2026-03-15)*
+
+## Pending before release
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | **Key mapping via Minecraft controls menu** | Replace the cycling key-picker in the Momentum options screen with proper Minecraft `KeyBinding` registrations. The options screen should show read-only labels ("Brake: [key]", "Drift: [key]") that reflect whatever the player has bound in Options → Controls. Affects: brake key, all drift keys (J/K/N/M/O). |
+| 2 | **Codebase audit — inconsistencies & redundancies** | Full pass over all source files before release. Look for: dead code paths, leftover debug logs, duplicate config lookups, stale imports, and any mixin fields/helpers that were superseded but not removed. |
+| 3 | **Multiplayer / server support — untested** | The C2S packet + `ServerKeyState` path was written but never run on a real dedicated server. Must be tested before release. |
+| 4 | **Mod icon rework** | Current icon needs replacement. |
+
+*— Agent Sonnet 4.6 (2026-03-17)*
+
+---
 
 ## Current feature status
 
@@ -113,4 +164,9 @@ Two-part fix:
 | HUD suppression | `@Inject AutomobileHud.renderSpeedometer HEAD cancel` | ✅ done |
 | Custom HUD | `MomentumHud` + `HudRenderCallback` | ✅ done |
 | M-key dual-mode drift | `@Inject HEAD+RETURN movementTick` + `MomentumDriftState.mKeyHeld`; steering≠0 → slip-angle drift w/ accumulator + boost; steering=0 → brake | ✅ done — Agent Sonnet 4.6 (2026-03-16, retroactive entry) |
-| Multiplayer (dedicated server) | C2S `KeyStatePacket` + `ServerKeyState` + dual-path helpers in mixin | ✅ done — Agent Sonnet 4.6 (2026-03-15) |
+| Multiplayer (dedicated server) | C2S `KeyStatePacket` (6 bools) + `ServerKeyState` + dual-path helpers in mixin | ⚠️ coded, **untested** — must test on real dedicated server before release |
+| O-key drift shortcut | `oDriftKey` config + `ODrift.Profile` enum; `momentum$kEffectiveKey()`/`momentum$mEffectiveKey()` helpers; YACL Drift category rebuilds on profile change | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
+| Steering center rate | `@ModifyConstant(0.42f)` returns `centerRate` on release vs `rampRate` when steering | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
+| Acceleration steering gate removal | `@ModifyConstant(doubleValue=0.5)` → `Double.MAX_VALUE` in `movementTick` | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
+| Bar HUD | `BarHud` renderer + `hud.useBarHud` toggle; `BarHud` config group in YACL HUD category | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
+| YACL in-game config screen | `MomentumConfigScreen` (`.` key) with all six categories; greyed-out dependent options | ✅ done — Agent Sonnet 4.6 (2026-03-16) — key fields to be replaced with read-only labels once Minecraft `KeyBinding` integration is done (see Pending #1) |
