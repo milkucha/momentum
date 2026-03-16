@@ -112,4 +112,5 @@ Two-part fix:
 | Camera lock | `END_CLIENT_TICK` in `MomentumClient` | ✅ done |
 | HUD suppression | `@Inject AutomobileHud.renderSpeedometer HEAD cancel` | ✅ done |
 | Custom HUD | `MomentumHud` + `HudRenderCallback` | ✅ done |
+| M-key dual-mode drift | `@Inject HEAD+RETURN movementTick` + `MomentumDriftState.mKeyHeld`; steering≠0 → slip-angle drift w/ accumulator + boost; steering=0 → brake | ✅ done — Agent Sonnet 4.6 (2026-03-16, retroactive entry) |
 | Multiplayer (dedicated server) | C2S `KeyStatePacket` + `ServerKeyState` + dual-path helpers in mixin | ✅ done — Agent Sonnet 4.6 (2026-03-15) |

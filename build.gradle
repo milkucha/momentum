@@ -13,6 +13,8 @@ base {
 
 repositories {
     maven { url "https://maven.fabricmc.net/" }
+    maven { name = "Terraformers"; url = "https://maven.terraformersmc.com/" }
+    maven { name = "Isxander";     url = "https://maven.isxander.dev/releases" }
 }
 
 dependencies {
@@ -24,6 +26,14 @@ dependencies {
     // Automobility jar placed in libs/ — compile against it but don't bundle it
     modCompileOnly(fileTree(dir: 'libs', include: '*.jar'))
     modLocalRuntime(fileTree(dir: 'libs', include: '*.jar'))
+
+    // ModMenu — optional; players install separately
+    modCompileOnly "com.terraformersmc:modmenu:7.1.0"
+    modLocalRuntime "com.terraformersmc:modmenu:7.1.0"
+
+    // YACL — optional; players install separately
+    modCompileOnly "dev.isxander:yet-another-config-lib:3.6.1+1.20.1-fabric"
+    modLocalRuntime "dev.isxander:yet-another-config-lib:3.6.1+1.20.1-fabric"
 }
 
 processResources {

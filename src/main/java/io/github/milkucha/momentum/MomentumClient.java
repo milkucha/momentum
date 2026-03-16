@@ -40,6 +40,7 @@ public class MomentumClient implements ClientModInitializer {
     private boolean pktK     = false;
     private boolean pktN     = false;
     private boolean pktM     = false;
+    private boolean pktO     = false;
 
     @Override
     public void onInitializeClient() {
@@ -51,6 +52,7 @@ public class MomentumClient implements ClientModInitializer {
             } else {
                 MomentumHud.render(drawContext, tickDelta);
             }
+            MomentumHud.renderDebug(drawContext, tickDelta);
         });
 
         KeyBinding reloadKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -75,12 +77,15 @@ public class MomentumClient implements ClientModInitializer {
                     GLFW.glfwGetKey(win, GLFW.GLFW_KEY_N) == GLFW.GLFW_PRESS;
                 MomentumDriftState.mKeyHeld =
                     GLFW.glfwGetKey(win, GLFW.GLFW_KEY_M) == GLFW.GLFW_PRESS;
+                MomentumDriftState.oKeyHeld =
+                    GLFW.glfwGetKey(win, GLFW.GLFW_KEY_O) == GLFW.GLFW_PRESS;
             } else {
                 MomentumBrakeState.brakeHeld = false;
                 MomentumDriftState.driftKeyHeld = false;
                 MomentumDriftState.kDriftKeyHeld = false;
                 MomentumDriftState.nDriftKeyHeld = false;
                 MomentumDriftState.mKeyHeld      = false;
+                MomentumDriftState.oKeyHeld      = false;
             }
 
             // Send key state to server whenever any value changes.
@@ -90,11 +95,12 @@ public class MomentumClient implements ClientModInitializer {
             boolean nk = MomentumDriftState.kDriftKeyHeld;
             boolean nn = MomentumDriftState.nDriftKeyHeld;
             boolean nm = MomentumDriftState.mKeyHeld;
+            boolean no = MomentumDriftState.oKeyHeld;
             if (client.getNetworkHandler() != null
-                    && (nb != pktBrake || nj != pktJ || nk != pktK || nn != pktN || nm != pktM)) {
-                pktBrake = nb; pktJ = nj; pktK = nk; pktN = nn; pktM = nm;
+                    && (nb != pktBrake || nj != pktJ || nk != pktK || nn != pktN || nm != pktM || no != pktO)) {
+                pktBrake = nb; pktJ = nj; pktK = nk; pktN = nn; pktM = nm; pktO = no;
                 PacketByteBuf buf = PacketByteBufs.create();
-                new KeyStatePacket(nb, nj, nk, nn, nm).write(buf);
+                new KeyStatePacket(nb, nj, nk, nn, nm, no).write(buf);
                 ClientPlayNetworking.send(KeyStatePacket.ID, buf);
             }
         });

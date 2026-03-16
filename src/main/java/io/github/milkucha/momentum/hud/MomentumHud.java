@@ -8,6 +8,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.Identifier;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * MomentumHud — texture-based speedometer HUD.
@@ -130,55 +132,139 @@ public class MomentumHud {
                 panelX + cfg.hud.speedTextOffsetX + speedW, panelY + cfg.hud.speedTextOffsetY,
                 COL_UNIT, true);
 
-        // ── Debug overlay — separate panel, upper-right by default ────────────
-        if (cfg.hud.debug && auto instanceof SteeringDebugAccessor dbg) {
-            boolean jHeld   = MomentumDriftState.driftKeyHeld;
-            boolean drifting = dbg.momentum$isDrifting();
-            boolean onGround = dbg.momentum$isOnGround();
-            float   steering = dbg.momentum$getSteering();
-            float   hSpd     = dbg.momentum$getHSpeed();
+    }
 
-            // Condition breakdown: what's blocking drift start
-            String condStr = (steering != 0 ? "S" : "s")
-                           + (hSpd > 0.4f   ? "V" : "v")
-                           + (onGround       ? "G" : "g")
-                           + (!drifting      ? "D" : "d");  // uppercase = condition met
+    // ── Debug overlay ─────────────────────────────────────────────────────────
+    // Called from MomentumClient regardless of which HUD mode is active.
+    public static void renderDebug(DrawContext graphics, float tickDelta) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) return;
+        Entity vehicle = client.player.getVehicle();
+        if (!(vehicle instanceof AutomobileEntity auto)) return;
+        if (client.currentScreen != null) return;
 
-            boolean kDrift = dbg.momentum$isKDriftActive();
+        MomentumConfig cfg = MomentumConfig.get();
+        if (!cfg.hud.debug) return;
+        if (!(auto instanceof SteeringDebugAccessor dbg)) return;
 
-            String line1 = String.format("steer:  %+.3f", steering);
-            String line2 = String.format("hSpd:   %.3f",  hSpd);
-            String line3 = String.format("angSpd: %+.3f", dbg.momentum$getAngularSpeed());
-            String line4 = "J key:  " + (jHeld   ? "YES" : "no");
-            String line5 = "drift:  " + (drifting ? "YES" : "no");
-            String line6 = "turbo:  " + dbg.momentum$getTurboCharge();
-            String line7 = String.format("K drft: %s  %.1f°",
-                    kDrift ? "ON " : "off", dbg.momentum$getKDriftOffset());
-            String line8 = "cond:   " + condStr + " (SVGd=ok)";
+        // ── Live state ────────────────────────────────────────────────────────
+        float   steering  = dbg.momentum$getSteering();
+        float   hSpd      = dbg.momentum$getHSpeed();
+        float   angSpd    = dbg.momentum$getAngularSpeed();
+        float   engSpd    = dbg.momentum$getEngineSpeed();
+        boolean drifting  = dbg.momentum$isDrifting();
+        boolean onGround  = dbg.momentum$isOnGround();
+        boolean braking   = dbg.momentum$isBraking();
+        int     turbo     = dbg.momentum$getTurboCharge();
+        boolean kActive   = dbg.momentum$isKDriftActive();
+        float   kAngle    = dbg.momentum$getKDriftOffset();
+        boolean mActive   = dbg.momentum$isMDriftActive();
+        float   mAngle    = dbg.momentum$getMDriftOffset();
 
-            int dbgW = 120;
-            int dbgH = 92;
-            int dbgX = cfg.hud.debugX >= 0
-                    ? cfg.hud.debugX
-                    : screenW - dbgW - cfg.hud.debugMarginRight;
-            int dbgY = cfg.hud.debugY;
+        boolean jHeld = MomentumDriftState.driftKeyHeld;
+        boolean kHeld = MomentumDriftState.kDriftKeyHeld;
+        boolean mHeld = MomentumDriftState.mKeyHeld;
+        boolean nHeld = MomentumDriftState.nDriftKeyHeld;
+        boolean oHeld = MomentumDriftState.oKeyHeld;
 
-            drawPanel(graphics, dbgX, dbgY, dbgW, dbgH);
-            graphics.drawText(client.textRenderer, line1, dbgX + 6, dbgY + 4,  0xFFFFFF55, true);
-            graphics.drawText(client.textRenderer, line2, dbgX + 6, dbgY + 13, 0xFF55FFFF, true);
-            graphics.drawText(client.textRenderer, line3, dbgX + 6, dbgY + 22, 0xFFFF55FF, true);
-            graphics.drawText(client.textRenderer, line4, dbgX + 6, dbgY + 31,
-                    jHeld    ? 0xFF55FF55 : 0xFF999999, true);
-            graphics.drawText(client.textRenderer, line5, dbgX + 6, dbgY + 40,
-                    drifting ? 0xFFFF5555 : 0xFF999999, true);
-            graphics.drawText(client.textRenderer, line6, dbgX + 6, dbgY + 49,
-                    dbg.momentum$getTurboCharge() > 0 ? 0xFFFFAA00 : 0xFF999999, true);
-            graphics.drawText(client.textRenderer, line7, dbgX + 6, dbgY + 58,
-                    kDrift ? 0xFF00AAFF : 0xFF999999, true);
-            graphics.drawText(client.textRenderer, line8, dbgX + 6, dbgY + 67,
-                    condStr.equals("SVGd") ? 0xFF55FF55 : 0xFFFF5555, true);
+        List<String>  texts  = new ArrayList<>();
+        List<Integer> colors = new ArrayList<>();
+
+        if (jHeld) {
+            addJLines(texts, colors, cfg, steering, hSpd, turbo, drifting, onGround);
+        } else if (kHeld) {
+            addKLines(texts, colors, cfg, steering, hSpd, kActive, kAngle);
+        } else if (mHeld) {
+            addMLines(texts, colors, cfg, steering, hSpd, mActive, mAngle);
+        } else if (nHeld) {
+            addNLines(texts, colors, cfg, hSpd, engSpd, drifting, braking);
+        } else if (oHeld) {
+            MomentumConfig.ODrift.Profile profile = cfg.oDrift.profile;
+            row(texts, colors, "O-DRIFT \u2192 " + profile.name(), 0xFFCCCCCC);
+            switch (profile) {
+                case J -> addJLines(texts, colors, cfg, steering, hSpd, turbo, drifting, onGround);
+                case K -> addKLines(texts, colors, cfg, steering, hSpd, kActive, kAngle);
+                case M -> addMLines(texts, colors, cfg, steering, hSpd, mActive, mAngle);
+            }
+        } else {
+            row(texts, colors, "GENERAL",                                           0xFF999999);
+            row(texts, colors, String.format("steer:  %+.3f", steering),            0xFFFFFF55);
+            row(texts, colors, String.format("hSpd:   %.3f",  hSpd),                0xFF55FFFF);
+            row(texts, colors, String.format("engSpd: %.3f",  engSpd),              0xFFAAAAAA);
+            row(texts, colors, String.format("angSpd: %+.3f", angSpd),              0xFFFF55FF);
+            row(texts, colors, "ground: " + yn(onGround),     onGround ? 0xFF55FF55 : 0xFF999999);
+            row(texts, colors, "drift:  " + yn(drifting),     drifting ? 0xFF55FF55 : 0xFF999999);
+        }
+
+        int lineH = 9;
+        int padX  = 6;
+        int padY  = 4;
+        int dbgW  = 152;
+        int dbgH  = padY * 2 + texts.size() * lineH;
+
+        int screenW = client.getWindow().getScaledWidth();
+        int dbgX = cfg.hud.debugX >= 0
+                ? cfg.hud.debugX
+                : screenW - dbgW - cfg.hud.debugMarginRight;
+        int dbgY = cfg.hud.debugY;
+
+        drawPanel(graphics, dbgX, dbgY, dbgW, dbgH);
+        for (int i = 0; i < texts.size(); i++) {
+            graphics.drawText(client.textRenderer, texts.get(i),
+                    dbgX + padX, dbgY + padY + i * lineH, colors.get(i), true);
         }
     }
+
+    private static void row(List<String> texts, List<Integer> colors, String text, int color) {
+        texts.add(text);
+        colors.add(color);
+    }
+
+    private static void addJLines(List<String> texts, List<Integer> colors,
+            MomentumConfig cfg, float steering, float hSpd, int turbo,
+            boolean drifting, boolean onGround) {
+        row(texts, colors, "J-DRIFT",                                               0xFFFFAA00);
+        row(texts, colors, String.format("steer:   %+.3f", steering),               0xFFFFFF55);
+        row(texts, colors, String.format("hSpd:    %.3f",  hSpd),                   0xFF55FFFF);
+        row(texts, colors, "drifting: " + yn(drifting),    drifting  ? 0xFF55FF55 : 0xFF999999);
+        row(texts, colors, "ground:   " + yn(onGround),    onGround  ? 0xFF55FF55 : 0xFF999999);
+        row(texts, colors, "turbo: " + turbo,              turbo > 0 ? 0xFFFFAA00 : 0xFF999999);
+    }
+
+    private static void addKLines(List<String> texts, List<Integer> colors,
+            MomentumConfig cfg, float steering, float hSpd,
+            boolean kActive, float kAngle) {
+        row(texts, colors, "K-DRIFT",                                               0xFF55AAFF);
+        row(texts, colors, String.format("steer:   %+.3f", steering),               0xFFFFFF55);
+        row(texts, colors, String.format("hSpd:    %.3f",  hSpd),                   0xFF55FFFF);
+        row(texts, colors, "active:  " + yn(kActive),      kActive   ? 0xFF55FF55 : 0xFF999999);
+        row(texts, colors, String.format("angle:   %+.2f", kAngle),                 0xFFFF55FF);
+        row(texts, colors, String.format("target:  %.1f",  cfg.kDrift.slipAngle),   0xFFAAAAAA);
+    }
+
+    private static void addMLines(List<String> texts, List<Integer> colors,
+            MomentumConfig cfg, float steering, float hSpd,
+            boolean mActive, float mAngle) {
+        row(texts, colors, "M-DRIFT",                                               0xFFFF55AA);
+        row(texts, colors, String.format("steer:   %+.3f", steering),               0xFFFFFF55);
+        row(texts, colors, String.format("hSpd:    %.3f",  hSpd),                   0xFF55FFFF);
+        row(texts, colors, "active:  " + yn(mActive),      mActive   ? 0xFF55FF55 : 0xFF999999);
+        row(texts, colors, String.format("angle:   %+.2f", mAngle),                 0xFFFF55FF);
+        row(texts, colors, String.format("target:  %.1f",  cfg.mDrift.slipAngle),   0xFFAAAAAA);
+    }
+
+    private static void addNLines(List<String> texts, List<Integer> colors,
+            MomentumConfig cfg, float hSpd, float engSpd,
+            boolean drifting, boolean braking) {
+        row(texts, colors, "N-DRIFT",                                               0xFF55FF55);
+        row(texts, colors, String.format("hSpd:    %.3f",  hSpd),                   0xFF55FFFF);
+        row(texts, colors, String.format("engSpd:  %.3f",  engSpd),                 0xFFAAAAAA);
+        row(texts, colors, "drifting: " + yn(drifting),    drifting  ? 0xFF55FF55 : 0xFF999999);
+        row(texts, colors, "braking:  " + yn(braking),     braking   ? 0xFFFF5555 : 0xFF999999);
+        row(texts, colors, "brakeTicks: " + cfg.nDrift.brakeTicks,                  0xFFAAAAAA);
+    }
+
+    private static String yn(boolean v) { return v ? "YES" : "no"; }
 
     private static void drawScaled(DrawContext g, Identifier tex, int x, int y, int w, int h, float scale) {
         var matrices = g.getMatrices();

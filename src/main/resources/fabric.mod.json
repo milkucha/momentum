@@ -6,6 +6,7 @@
   "description": "An Automobility addon that improves car movement feel and adds a better HUD.",
   "authors": ["milkucha"],
   "license": "MIT",
+  "icon": "momentum_icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
@@ -13,6 +14,9 @@
     ],
     "client": [
       "io.github.milkucha.momentum.MomentumClient"
+    ],
+    "modmenu": [
+      "io.github.milkucha.momentum.modmenu.MomentumModMenuImpl"
     ]
   },
   "mixins": [
@@ -23,5 +27,9 @@
     "fabric-api": "*",
     "minecraft": "~1.20.1",
     "automobility": "*"
+  },
+  "suggests": {
+    "modmenu": "*",
+    "yet_another_config_lib_v3": "*"
   }
 }

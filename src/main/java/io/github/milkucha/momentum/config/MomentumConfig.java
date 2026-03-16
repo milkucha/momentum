@@ -18,6 +18,7 @@ public class MomentumConfig {
     public KDrift  kDrift   = new KDrift();
     public MDrift  mDrift   = new MDrift();
     public NDrift  nDrift   = new NDrift();
+    public ODrift  oDrift   = new ODrift();
 
     // ── Groups ────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,10 @@ public class MomentumConfig {
         public float   boost             = 0.04f;
         public int     minTicks          = 15;
         public boolean boostEnabled      = false;
+        public boolean brakeEnabled      = false;
+        public float   steerThreshold    = 0.0f;  // minimum |steering| to start drift (0 = any non-zero)
+        public int     minHoldTicks      = 0;     // ticks K must be held before drift can start
+        public int     autoTriggerTicks  = 0;     // ticks before auto-start in random direction (0 = disabled)
     }
 
     public static class MDrift {
@@ -133,10 +138,16 @@ public class MomentumConfig {
         public float   steerThreshold    = 0.7f;
         public float   minSpeedKmh       = 45.0f;
         public boolean boostEnabled      = true;
+        public boolean brakeEnabled      = true;
     }
 
     public static class NDrift {
         public int brakeTicks = 15;
+    }
+
+    public static class ODrift {
+        public enum Profile { J, K, M }
+        public Profile profile = Profile.K;
     }
 
     // ── Serialisation ─────────────────────────────────────────────────────────
@@ -171,6 +182,7 @@ public class MomentumConfig {
                     if (loaded.kDrift   == null) loaded.kDrift   = new KDrift();
                     if (loaded.mDrift   == null) loaded.mDrift   = new MDrift();
                     if (loaded.nDrift   == null) loaded.nDrift   = new NDrift();
+                    if (loaded.oDrift   == null) loaded.oDrift   = new ODrift();
                     loaded.save();
                     return loaded;
                 }

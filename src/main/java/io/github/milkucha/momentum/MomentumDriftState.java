@@ -27,4 +27,7 @@ public class MomentumDriftState {
 
     // M key — combined: brake when steering=0, K-drift when steering≠0
     public static volatile boolean mKeyHeld = false;
+
+    // O key — profile selector: delegates to J, K, or M based on config
+    public static volatile boolean oKeyHeld = false;
 }
