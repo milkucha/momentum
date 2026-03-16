@@ -62,6 +62,12 @@ public class MomentumClient implements ClientModInitializer {
                 GLFW.GLFW_KEY_F6,
                 "category.momentum"
         ));
+        KeyBinding openOptionsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.momentum.open_options",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_PERIOD,
+                "category.momentum"
+        ));
 
         // Update brake and drift key states from GLFW before entity ticks so both
         // client and server entities read the correct values this frame.
@@ -110,6 +116,10 @@ public class MomentumClient implements ClientModInitializer {
             if (reloadKey.wasPressed() && client.player != null) {
                 MomentumConfig.reload();
                 client.player.sendMessage(Text.literal("[Momentum] Config reloaded"), true);
+            }
+            if (openOptionsKey.wasPressed()) {
+                client.execute(() -> client.setScreen(
+                    io.github.milkucha.momentum.config.MomentumConfigScreen.create(null)));
             }
 
             if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity auto) {
@@ -177,13 +187,11 @@ public class MomentumClient implements ClientModInitializer {
                 }
                 prevNDriftKeyHeld = nDriftKeyHeld;
 
-                boolean mEffectiveHeld = MomentumDriftState.mKeyHeld ||
-                    (MomentumDriftState.oKeyHeld &&
-                        MomentumConfig.get().oDrift.profile == MomentumConfig.ODrift.Profile.M);
-                if (mEffectiveHeld && !prevMDriftActive) {
+                boolean mDriftNowActive = accessor.momentum$isMDriftActive();
+                if (mDriftNowActive && !prevMDriftActive) {
                     client.getSoundManager().play(new MDriftSkidSound(auto));
                 }
-                prevMDriftActive = mEffectiveHeld;
+                prevMDriftActive = mDriftNowActive;
             } else {
                 prevBrakeHeld        = false;
                 prevJDriftActive     = false;
