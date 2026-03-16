@@ -25,11 +25,12 @@ public class MomentumConfig {
         public float coastDecay               = 0.009f;
         public float accelerationScale        = 3.7f;
         public float brakeDecay               = 0.03f;
-        public float comfortableSpeedMultiplier = 1.9f;
+        public float comfortableSpeedMultiplier = 1.55f;
     }
 
     public static class Steering {
         public float rampRate       = 0.12f;
+        public float centerRate     = 0.42f;  // rate back to center when no steering key held
         public float understeer     = 3.0f;
         public float understeerCurve = 2.0f;
     }
@@ -44,14 +45,14 @@ public class MomentumConfig {
         public float   brakeZoomSpring     = 0.06f; // spring constant (return-to-zero pull)
         public float   brakeZoomDamping    = 0.90f; // velocity decay per tick (0=none,1=freeze)
         public boolean driftCamera   = true;   // enable camera yaw offset during K/M drift
-        public float   driftScale    = 3.0f;
-        public float   driftLerpIn   = 0.05f;
-        public float   driftLerpOut  = 0.15f;
+        public float   driftScale    = 2.0f;
+        public float   driftLerpIn   = 0.1f;
+        public float   driftLerpOut  = 0.1f;
     }
 
     public static class Hud {
         // Set to true to use the bar-based HUD instead of the texture-based one.
-        public boolean useBarHud       = false;
+        public boolean useBarHud       = true;
         public int   x                = -1;
         public int   y                = -1;
         public int   marginRight      = 230;
@@ -74,20 +75,20 @@ public class MomentumConfig {
         // Position. -1 = anchor to right/bottom edge using the margin fields.
         public int   x            = -1;
         public int   y            = -1;
-        public int   marginRight  = 10;
-        public int   marginBottom = 50;
+        public int   marginRight  = 212;
+        public int   marginBottom = 29;
 
         // Overall size of the velocimeter area in pixels.
-        public int   totalWidth   = 210;
-        public int   totalHeight  = 30;
+        public int   totalWidth   = 90;
+        public int   totalHeight  = 15;
 
         // Size of each individual bar segment and the gap between them.
         // numBars = floor((totalWidth + barSpacing) / (barWidth + barSpacing))
-        public int   barWidth     = 3;
+        public int   barWidth     = 5;
         public int   barSpacing   = 2;
 
         // Speed (km/h) at which all bar segments are filled.
-        public float maxSpeedKmh  = 200.0f;
+        public float maxSpeedKmh  = 150.0f;
 
         // ARGB color of filled bar segments (e.g. 0xFFFFFFFF = opaque white).
         public int   barColor     = 0xFFFFFFFF;
@@ -106,34 +107,32 @@ public class MomentumConfig {
     public static class KDrift {
         public float   slipAngle         = 3f;
         public float   slipConvergeRate  = 4f;    // deg/tick the offset converges toward target while held
-        public float   slipDecay         = 1.3f;
-        public float   slipDecaySpeedRef = 0.6f;
+        public float   slipDecay         = 0.9f;
+        public float   slipDecaySpeedRef = 0.2f;
         public float   boost             = 0.04f;
         public int     minTicks          = 15;
-        public boolean boostEnabled      = true;
+        public boolean boostEnabled      = false;
     }
 
     public static class MDrift {
-        public float   slipAngle         = 5f;
-        public float   slipConvergeRate  = 4f;    // deg/tick the offset converges toward target while held
-        public float   slipDecay         = 2.1f;  // fade-out rate after M released
+        public float   slipAngle         = 30f;
+        public float   slipConvergeRate  = 0.15f; // fraction of remaining distance closed per tick (exponential ease-out toward target)
+        public float   slipDecay         = 1.3f;  // deg/tick removed on release (linear, same formula as K-drift)
         public float   slipDecaySpeedRef = 0.6f;  // reference speed for speed-adjusted decay
         public float   boost             = 0.04f; // engine speed bonus on clean release
-        public int     minTicks          = 15;    // minimum ticks held to earn boost
+        public int     boostDuration     = 40;    // ticks the boost animation plays (20 ticks = 1 s)
+        public int     minTicks          = 60;    // minimum ticks held to earn boost
         public float   steerSensitivity  = 2.0f;
         // How fast the steering accumulator (0..1) climbs per tick while steering is held.
-        // 1 / steerBuildRate = ticks to reach max angle from zero.
-        // 0.02 = 50 ticks (~2.5 s)  ← default
-        public float   steerBuildRate    = 0.0001f;
+        public float   steerBuildRate    = 0.05f;
         // How fast the accumulator falls per tick when steering is released mid-drift.
-        // 0.04 = 25 ticks (~1.25 s) to fully release  ← default
-        public float   steerDecayRate    = 0.04f;
+        public float   steerDecayRate    = 0.01f;
         public boolean constantAngle     = false;
         public int     minHoldTicks      = 0;
         public int     autoTriggerTicks  = 25;
-        public float   steerThreshold    = 0.9f;
+        public float   steerThreshold    = 0.7f;
         public float   minSpeedKmh       = 45.0f;
-        public boolean boostEnabled      = false;
+        public boolean boostEnabled      = true;
     }
 
     public static class NDrift {

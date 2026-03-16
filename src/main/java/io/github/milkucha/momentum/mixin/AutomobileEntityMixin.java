@@ -186,7 +186,8 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
     )
     private float momentum$steeringRampRate(float original) {
         if (drifting) return original;
-        return MomentumConfig.get().steering.rampRate;
+        if (steeringLeft || steeringRight) return MomentumConfig.get().steering.rampRate;
+        return MomentumConfig.get().steering.centerRate;
     }
 
     // ── Speed-based understeer ────────────────────────────────────────────────
@@ -526,9 +527,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     momentum$mDriftActive = true;
                     momentum$mDriftDir    = steering > 0 ? 1 : -1;
                     momentum$mDriftTimer  = 0;
-                    float initSteerFactor = cfg.constantAngle ? 1.0f
-                        : (float) Math.pow(Math.abs(steering), cfg.steerSensitivity);
-                    momentum$mDriftOffset = momentum$mDriftDir * cfg.slipAngle * initSteerFactor;
+                    momentum$mDriftOffset = 0f; // start at zero; ease-in lerp builds it up
                     momentum$mHeldTimer   = 0;
                     System.out.println("[Momentum-MDrift] DRIFT STARTED dir=" + momentum$mDriftDir
                         + " offset=" + momentum$mDriftOffset
@@ -542,7 +541,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                         momentum$mDriftActive = true;
                         momentum$mDriftDir    = dir;
                         momentum$mDriftTimer  = 0;
-                        momentum$mDriftOffset = dir * cfg.slipAngle;
+                        momentum$mDriftOffset = 0f; // start at zero; ease-in lerp builds it up
                         momentum$mHeldTimer   = 0;
                         System.out.println("[Momentum-MDrift] AUTO-TRIGGER dir=" + dir
                             + " hSpd=" + hSpeed);
@@ -568,7 +567,8 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                 float steerFactor = cfg.constantAngle ? 1.0f
                     : (float) Math.pow(momentum$mSteerAccum, cfg.steerSensitivity);
                 float target = currentDir * cfg.slipAngle * steerFactor;
-                momentum$mDriftOffset = AUtils.shift(momentum$mDriftOffset, cfg.slipConvergeRate, target);
+                // Exponential lerp: moves a fraction of remaining distance per tick → ease-in/out feel
+                momentum$mDriftOffset += (target - momentum$mDriftOffset) * cfg.slipConvergeRate;
                 if (hSpeed < 0.3f) {
                     System.out.println("[Momentum-MDrift] CANCELLED (too slow, hSpd=" + hSpeed + ")");
                     momentum$mDriftActive = false;
@@ -577,7 +577,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     momentum$mSteerAccum  = 0f;
                 }
             } else {
-                // M released: fade slip angle back to zero, grant boost if sustained (speed-adjusted)
+                // M released: speed-adjusted linear decay, same pattern as K-drift
                 float mDecay = cfg.slipDecaySpeedRef > 0
                     ? cfg.slipDecay * cfg.slipDecaySpeedRef / Math.max(0.1f, Math.abs(hSpeed))
                     : cfg.slipDecay;
@@ -586,7 +586,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
                     if (cfg.boostEnabled && momentum$mDriftTimer >= cfg.minTicks) {
                         System.out.println("[Momentum-MDrift] BOOST GRANTED timer=" + momentum$mDriftTimer);
                         engineSpeed += cfg.boost;
-                        boost(0.23f, 9);
+                        boost(0.23f, cfg.boostDuration);
                     }
                     momentum$mDriftActive = false;
                     momentum$mDriftTimer  = 0;
