@@ -16,8 +16,8 @@ public class MomentumConfig {
     public Steering steering = new Steering();
     public Camera  camera   = new Camera();
     public BarHud  barHud   = new BarHud();
-    public KDrift  kDrift   = new KDrift();
-    public MDrift  mDrift   = new MDrift();
+    public ArcadeDrift    arcadeDrift    = new ArcadeDrift();
+    public ResponsiveDrift responsiveDrift = new ResponsiveDrift();
     public ODrift  oDrift   = new ODrift();
     public Sound   sound    = new Sound();
 
@@ -28,7 +28,7 @@ public class MomentumConfig {
         public float coastDecay               = 0.009f;
         public float accelerationScale        = 5.5f;
         public float brakeDecay               = 0.03f;
-        public float comfortableSpeedMultiplier = 1.55f;
+        public float comfortableSpeedMultiplier = 1.25f;
     }
 
     public static class Steering {
@@ -43,11 +43,11 @@ public class MomentumConfig {
         public boolean enabled            = true;
         public boolean lock               = true;
         public float   pitch              = 10f;
-        public float   brakeZoomFov       = 0f;    // max FOV reduction clamp (degrees)
+        public float   brakeZoomFov       = 10f;   // max FOV reduction clamp (degrees)
         // Spring-damper brake zoom: deceleration (hSpeed delta/tick) drives a mass-spring camera.
         // When the vehicle stops, accumulated velocity carries the zoom briefly — inertia feel.
-        public float   brakeZoomInputScale = 30f;  // decel units → zoom force multiplier
-        public float   brakeZoomSpring     = 0.06f; // spring constant (return-to-zero pull)
+        public float   brakeZoomInputScale = 10f;  // decel units → zoom force multiplier
+        public float   brakeZoomSpring     = 0.02f; // spring constant (return-to-zero pull)
         public float   brakeZoomDamping    = 0.90f; // velocity decay per tick (0=none,1=freeze)
     }
 
@@ -56,7 +56,7 @@ public class MomentumConfig {
         // Position. -1 = anchor to right/bottom edge using the margin fields.
         public int   x            = -1;
         public int   y            = -1;
-        public float xFraction    = 0.33f;   // fraction of screenW from right edge; resolution-independent
+        public float xFraction    = 0.5f;    // fraction of screenW from right edge; resolution-independent
         public int   marginBottom = 29;
 
         // Overall size of the velocimeter area in pixels.
@@ -91,7 +91,7 @@ public class MomentumConfig {
         public float   debugXFraction = 0.016f; // fraction of screenW from right edge
     }
 
-    public static class KDrift {
+    public static class ArcadeDrift {
         public float   slipAngle         = 3f;
         public float   slipConvergeRate  = 4f;    // deg/tick the offset converges toward target while held
         public float   slipDecay         = 0.9f;
@@ -111,10 +111,10 @@ public class MomentumConfig {
         public float   cameraLerpOut     = 0.1f;
     }
 
-    public static class MDrift {
+    public static class ResponsiveDrift {
         public float   slipAngle         = 33f;
         public float   slipConvergeRate  = 0.18f; // fraction of remaining distance closed per tick (exponential ease-out toward target)
-        public float   slipDecay         = 1.3f;  // deg/tick removed on release (linear, same formula as Arcade drift)
+        public float   slipDecay         = 3.5f;  // deg/tick removed on release (linear, same formula as Arcade drift)
         public float   slipDecaySpeedRef = 0.6f;  // reference speed for speed-adjusted decay
         public float   boost             = 0.04f; // engine speed bonus on clean release
         public int     boostDuration     = 40;    // ticks the boost animation plays (20 ticks = 1 s)
@@ -176,8 +176,8 @@ public class MomentumConfig {
                     if (loaded.steering == null) loaded.steering = new Steering();
                     if (loaded.camera   == null) loaded.camera   = new Camera();
                     if (loaded.barHud   == null) loaded.barHud   = new BarHud();
-                    if (loaded.kDrift   == null) loaded.kDrift   = new KDrift();
-                    if (loaded.mDrift   == null) loaded.mDrift   = new MDrift();
+                    if (loaded.arcadeDrift    == null) loaded.arcadeDrift    = new ArcadeDrift();
+                    if (loaded.responsiveDrift == null) loaded.responsiveDrift = new ResponsiveDrift();
                     if (loaded.oDrift   == null) loaded.oDrift   = new ODrift();
                     if (loaded.oDrift.profile == null) loaded.oDrift.profile = new ODrift().profile; // old JSON had J/K/M enum values
                     if (loaded.sound    == null) loaded.sound    = new Sound();

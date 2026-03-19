@@ -11,7 +11,7 @@ import net.minecraft.util.math.random.Random;
 
 /**
  * Looping skid sound that plays while Arcade Drift is active.
- * Stops itself when kDriftActive becomes false or the entity is removed.
+ * Stops itself when arcadeDriftActive becomes false or the entity is removed.
  */
 public class ArcadeDriftSkidSound extends MovingSoundInstance {
 
@@ -46,7 +46,7 @@ public class ArcadeDriftSkidSound extends MovingSoundInstance {
             return;
         }
 
-        if (!accessor.momentum$isKDriftActive()) {
+        if (!accessor.momentum$isArcadeDriftActive()) {
             setDone();
             return;
         }

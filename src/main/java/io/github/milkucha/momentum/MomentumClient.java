@@ -139,18 +139,18 @@ public class MomentumClient implements ClientModInitializer {
                 }
 
                 // Independent camera lerp for Arcade and Responsive drift.
-                boolean kDriftCamActive = accessor.momentum$isKDriftActive();
-                boolean mDriftCamActive = accessor.momentum$isMDriftActive();
+                boolean arcadeDriftCamActive    = accessor.momentum$isArcadeDriftActive();
+                boolean responsiveDriftCamActive = accessor.momentum$isResponsiveDriftActive();
 
-                float kTarget = cfg.kDrift.cameraEnabled
-                        ? accessor.momentum$getKDriftOffset() * cfg.kDrift.cameraScale : 0f;
-                float mTarget = cfg.mDrift.cameraEnabled
-                        ? accessor.momentum$getMDriftOffset() * cfg.mDrift.cameraScale : 0f;
+                float kTarget = cfg.arcadeDrift.cameraEnabled
+                        ? accessor.momentum$getArcadeDriftOffset() * cfg.arcadeDrift.cameraScale : 0f;
+                float mTarget = cfg.responsiveDrift.cameraEnabled
+                        ? accessor.momentum$getResponsiveDriftOffset() * cfg.responsiveDrift.cameraScale : 0f;
 
                 kCameraDriftYawOffset += (kTarget - kCameraDriftYawOffset)
-                        * (kDriftCamActive ? cfg.kDrift.cameraLerpIn : cfg.kDrift.cameraLerpOut);
+                        * (arcadeDriftCamActive ? cfg.arcadeDrift.cameraLerpIn : cfg.arcadeDrift.cameraLerpOut);
                 mCameraDriftYawOffset += (mTarget - mCameraDriftYawOffset)
-                        * (mDriftCamActive ? cfg.mDrift.cameraLerpIn : cfg.mDrift.cameraLerpOut);
+                        * (responsiveDriftCamActive ? cfg.responsiveDrift.cameraLerpIn : cfg.responsiveDrift.cameraLerpOut);
 
                 if (cfg.camera.enabled && cfg.camera.lock) {
                     client.player.setYaw(auto.getYaw() + kCameraDriftYawOffset + mCameraDriftYawOffset);
@@ -188,13 +188,13 @@ public class MomentumClient implements ClientModInitializer {
                 }
                 prevVanillaDriftActive = vanillaActive;
 
-                boolean arcadeActive = accessor.momentum$isKDriftActive();
+                boolean arcadeActive = accessor.momentum$isArcadeDriftActive();
                 if (arcadeActive && !prevArcadeDriftActive) {
                     client.getSoundManager().play(new ArcadeDriftSkidSound(auto));
                 }
                 prevArcadeDriftActive = arcadeActive;
 
-                boolean responsiveActive = accessor.momentum$isMDriftActive();
+                boolean responsiveActive = accessor.momentum$isResponsiveDriftActive();
                 if (responsiveActive && !prevResponsiveDriftActive) {
                     client.getSoundManager().play(new ResponsiveDriftSkidSound(auto));
                 }

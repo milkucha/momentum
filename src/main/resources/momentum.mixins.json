@@ -9,8 +9,7 @@
   "client": [
     "AutomobileEngineSoundMixin",
     "AutomobileHudMixin",
-    "AutomobileBrakeMixin",
-    "CameraLockMixin",
+"CameraLockMixin",
     "GameRendererMixin"
   ],
   "injectors": {

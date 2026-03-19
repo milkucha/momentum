@@ -10,16 +10,10 @@ public interface SteeringDebugAccessor {
     float momentum$getHSpeed();
     float momentum$getAngularSpeed();
     boolean momentum$isDrifting();
-    boolean momentum$isHoldingDrift();
-    boolean momentum$isAccelerating();
-    boolean momentum$isBraking();
-    boolean momentum$isSteeringLeft();
-    boolean momentum$isSteeringRight();
-    int momentum$getTurboCharge();
     boolean momentum$isOnGround();
-    boolean momentum$isKDriftActive();
-    float   momentum$getKDriftOffset();
-    boolean momentum$isMDriftActive();
-    float   momentum$getMDriftOffset();
+    boolean momentum$isArcadeDriftActive();
+    float   momentum$getArcadeDriftOffset();
+    boolean momentum$isResponsiveDriftActive();
+    float   momentum$getResponsiveDriftOffset();
     float   momentum$getEngineSpeed();
 }

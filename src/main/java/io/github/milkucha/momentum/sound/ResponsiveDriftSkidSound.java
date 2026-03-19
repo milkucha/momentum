@@ -11,7 +11,7 @@ import net.minecraft.util.math.random.Random;
 
 /**
  * Looping skid sound that plays while Responsive Drift is active.
- * Stops itself when mDriftActive becomes false or the entity is removed.
+ * Stops itself when responsiveDriftActive becomes false or the entity is removed.
  * Pitch scales with hSpeed so the screech naturally lowers as the car slows.
  */
 public class ResponsiveDriftSkidSound extends MovingSoundInstance {
@@ -47,7 +47,7 @@ public class ResponsiveDriftSkidSound extends MovingSoundInstance {
             return;
         }
 
-        if (!accessor.momentum$isMDriftActive()) {
+        if (!accessor.momentum$isResponsiveDriftActive()) {
             setDone();
             return;
         }

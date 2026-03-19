@@ -159,11 +159,23 @@ Two-part fix:
 
 ---
 
+### Codebase audit — cleanup complete (2026-03-19)
+- Removed `AutomobileBrakeMixin` (empty shell) + mixins.json entry.
+- Removed all `System.out.println` debug logs (~15 calls across Vanilla/Arcade/Responsive/Brake state machines).
+- Removed 6 unused `SteeringDebugAccessor` methods (`isHoldingDrift`, `isAccelerating`, `isBraking`, `isSteeringLeft`, `isSteeringRight`, `getTurboCharge`) and their `@Shadow`/`@Unique` backing in the mixin (`holdingDrift`, `accelerating`, `braking`, `wasOnGround` shadows also removed).
+- Removed stale local vars `prevKHeld` and `prevMHeld` (only existed to feed debug prints).
+- Renamed all K/M-drift naming to Arcade/Responsive throughout:
+  - `MomentumConfig.KDrift` → `ArcadeDrift`, field `kDrift` → `arcadeDrift`
+  - `MomentumConfig.MDrift` → `ResponsiveDrift`, field `mDrift` → `responsiveDrift`
+  - All `@Unique` mixin fields renamed (`momentum$kDrift*` → `momentum$arcadeDrift*`, `momentum$m*` → `momentum$responsive*`)
+  - Accessor methods renamed (`isKDriftActive` → `isArcadeDriftActive`, etc.) across interface, mixin, MomentumClient, both skid sounds.
+- *— Agent Sonnet 4.6 (2026-03-19)*
+
 ## Pending before release
 
 | # | Task | Notes |
 |---|---|---|
-| 1 | **Codebase audit — inconsistencies & redundancies** | Full pass over all source files before release. Look for: dead code paths, leftover debug logs, duplicate config lookups, stale imports, and any mixin fields/helpers that were superseded but not removed. |
+| 1 | ~~**Codebase audit — inconsistencies & redundancies**~~ | ✅ Done — see entry above. |
 | 2 | **Multiplayer / server support — untested** | The C2S packet + `ServerKeyState` path was written but never run on a real dedicated server. Must be tested before release. |
 
 *— Agent Sonnet 4.6 (2026-03-17, updated 2026-03-19)*
