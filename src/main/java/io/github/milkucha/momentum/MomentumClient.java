@@ -24,12 +24,10 @@ import org.lwjgl.glfw.GLFW;
 public class MomentumClient implements ClientModInitializer {
 
     // ── Registered KeyBindings ────────────────────────────────────────────────
-
-    /** Handbrake (drift) — triggers the active drift profile. Default: Space. */
-    public static KeyBinding DRIFT_KEY;
-
-    /** Brake — applies Momentum's own braking. Default: S. */
-    public static KeyBinding BRAKE_KEY;
+    // NOTE: Brake and Drift keys are NOT registered as Minecraft KeyBindings.
+    // They are stored in MomentumConfig as GLFW key codes (brakeKey / driftKey).
+    // This avoids Fabric's key conflict suppression in multiplayer — registering
+    // them on Space/S would interfere with vanilla Jump and Move Backwards.
 
     // ── Tick state ────────────────────────────────────────────────────────────
 
@@ -52,20 +50,6 @@ public class MomentumClient implements ClientModInitializer {
 
         // ── KeyBinding registrations ──────────────────────────────────────────
         // These appear in Minecraft's vanilla Controls screen under "Momentum".
-
-        DRIFT_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.momentum.handbrake_drift",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_SPACE,
-                "key.categories.momentum"
-        ));
-
-        BRAKE_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.momentum.brake",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_S,
-                "key.categories.momentum"
-        ));
 
         KeyBinding reloadKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.momentum.reload_config",
@@ -98,8 +82,9 @@ public class MomentumClient implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (client.player != null && client.player.getVehicle() instanceof AutomobileEntity) {
                 long win = client.getWindow().getHandle();
-                MomentumBrakeState.brakeHeld  = isKeyHeld(BRAKE_KEY, win);
-                MomentumDriftState.driftKeyHeld = isKeyHeld(DRIFT_KEY, win);
+                MomentumConfig mc = MomentumConfig.get();
+                MomentumBrakeState.brakeHeld    = isKeyHeld(mc.brakeKey, win);
+                MomentumDriftState.driftKeyHeld = isKeyHeld(mc.driftKey, win);
             } else {
                 MomentumBrakeState.brakeHeld    = false;
                 MomentumDriftState.driftKeyHeld = false;
@@ -174,8 +159,13 @@ public class MomentumClient implements ClientModInitializer {
                         + inputForce
                         - cfg.camera.brakeZoomSpring * MomentumBrakeState.brakeZoomOffset;
                     MomentumBrakeState.brakeZoomOffset += brakeZoomVelocity;
-                    MomentumBrakeState.brakeZoomOffset = Math.max(0f,
-                        Math.min(cfg.camera.brakeZoomFov, MomentumBrakeState.brakeZoomOffset));
+                    if (MomentumBrakeState.brakeZoomOffset > cfg.camera.brakeZoomFov) {
+                        MomentumBrakeState.brakeZoomOffset = cfg.camera.brakeZoomFov;
+                        brakeZoomVelocity = Math.min(brakeZoomVelocity, 0f);
+                    } else if (MomentumBrakeState.brakeZoomOffset < 0f) {
+                        MomentumBrakeState.brakeZoomOffset = 0f;
+                        brakeZoomVelocity = Math.max(brakeZoomVelocity, 0f);
+                    }
                 } else {
                     brakeZoomVelocity = 0f;
                     MomentumBrakeState.brakeZoomOffset = 0f;
@@ -219,14 +209,12 @@ public class MomentumClient implements ClientModInitializer {
     }
 
     /**
-     * Returns true if the given KeyBinding is currently held down.
-     * Reads the user-configured key from the binding so remapping works correctly.
+     * Returns true if the given GLFW key code is currently held down.
+     * Reads raw GLFW state — does not consume key events or interfere with
+     * vanilla key bindings (Jump, Move Backwards, etc.).
      */
-    private static boolean isKeyHeld(KeyBinding binding, long windowHandle) {
-        InputUtil.Key bound = InputUtil.fromTranslationKey(binding.getBoundKeyTranslationKey());
-        if (bound.getCategory() == InputUtil.Type.KEYSYM) {
-            return GLFW.glfwGetKey(windowHandle, bound.getCode()) == GLFW.GLFW_PRESS;
-        }
-        return false;
+    private static boolean isKeyHeld(int glfwKeyCode, long windowHandle) {
+        return glfwKeyCode != GLFW.GLFW_KEY_UNKNOWN
+                && GLFW.glfwGetKey(windowHandle, glfwKeyCode) == GLFW.GLFW_PRESS;
     }
 }

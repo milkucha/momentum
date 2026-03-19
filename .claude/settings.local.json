@@ -3,7 +3,8 @@
     "allow": [
       "Read(//c/Users/milkucha/Desktop/DEV/mods/Momentum Project/**)",
       "Bash(unzip -q \"Automobility-0.4.2.b-1.20.1.zip\" -d /tmp/auto_extracted)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

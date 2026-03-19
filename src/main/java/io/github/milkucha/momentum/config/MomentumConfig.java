@@ -3,6 +3,7 @@ package io.github.milkucha.momentum.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,6 +12,11 @@ import java.nio.file.Path;
 public class MomentumConfig {
 
     public boolean enabled   = true;
+
+    /** GLFW key code for the brake action. Default: S (83). Edit in momentum.json to remap. */
+    public int brakeKey = GLFW.GLFW_KEY_S;
+    /** GLFW key code for the handbrake/drift action. Default: Space (32). Edit in momentum.json to remap. */
+    public int driftKey = GLFW.GLFW_KEY_SPACE;
 
     public Movement movement = new Movement();
     public Steering steering = new Steering();

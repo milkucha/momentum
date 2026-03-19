@@ -6,8 +6,8 @@ import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.OptionGroup;
 import dev.isxander.yacl3.api.YetAnotherConfigLib;
-import io.github.milkucha.momentum.MomentumClient;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
+import net.minecraft.client.util.InputUtil;
 import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
 import dev.isxander.yacl3.api.controller.ColorControllerBuilder;
 import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
@@ -283,8 +283,11 @@ public class MomentumConfigScreen {
                         .build())
                 .group(OptionGroup.createBuilder()
                         .name(Text.literal("Key Bindings"))
-                        .option(LabelOption.create(Text.literal("Brake: ").append(MomentumClient.BRAKE_KEY.getBoundKeyLocalizedText())))
-                        .option(LabelOption.create(Text.literal("Handbrake (Drift): ").append(MomentumClient.DRIFT_KEY.getBoundKeyLocalizedText())))
+                        .option(LabelOption.create(Text.literal("Brake: ").append(
+                                InputUtil.fromKeyCode(cfg.brakeKey, 0).getLocalizedText())))
+                        .option(LabelOption.create(Text.literal("Handbrake (Drift): ").append(
+                                InputUtil.fromKeyCode(cfg.driftKey, 0).getLocalizedText())))
+                        .option(LabelOption.create(Text.literal("(Edit brakeKey / driftKey in momentum.json to remap)")))
                         .build())
                 .build();
     }
