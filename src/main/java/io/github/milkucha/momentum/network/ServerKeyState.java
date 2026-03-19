@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Read by AutomobileEntityMixin on the server logical side to drive movement.
  * Cleaned up on player disconnect via ServerPlayConnectionEvents.DISCONNECT.
  *
- * Index mapping: [0]=brake [1]=j [2]=k [3]=n [4]=m [5]=o
+ * Index mapping: [0]=brake [1]=drift
  */
 public final class ServerKeyState {
 
@@ -20,16 +20,12 @@ public final class ServerKeyState {
 
     private ServerKeyState() {}
 
-    public static void set(UUID playerId, boolean brake, boolean j, boolean k, boolean n, boolean m, boolean o) {
-        STATES.put(playerId, new boolean[]{brake, j, k, n, m, o});
+    public static void set(UUID playerId, boolean brake, boolean drift) {
+        STATES.put(playerId, new boolean[]{brake, drift});
     }
 
     public static boolean getBrake(UUID playerId) { return get(playerId, 0); }
-    public static boolean getJ(UUID playerId)     { return get(playerId, 1); }
-    public static boolean getK(UUID playerId)     { return get(playerId, 2); }
-    public static boolean getN(UUID playerId)     { return get(playerId, 3); }
-    public static boolean getM(UUID playerId)     { return get(playerId, 4); }
-    public static boolean getO(UUID playerId)     { return get(playerId, 5); }
+    public static boolean getDrift(UUID playerId) { return get(playerId, 1); }
 
     public static void remove(UUID playerId) {
         STATES.remove(playerId);

@@ -25,7 +25,7 @@ public class Momentum implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(KeyStatePacket.ID,
             (server, player, handler, buf, responseSender) -> {
                 KeyStatePacket pkt = KeyStatePacket.read(buf);
-                ServerKeyState.set(player.getUuid(), pkt.brake, pkt.j, pkt.k, pkt.n, pkt.m, pkt.o);
+                ServerKeyState.set(player.getUuid(), pkt.brake, pkt.drift);
             });
 
         // Clear state on disconnect so a reconnecting player starts clean.

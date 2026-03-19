@@ -1,14 +1,14 @@
 package io.github.milkucha.momentum.config;
 
 import dev.isxander.yacl3.api.ConfigCategory;
+import dev.isxander.yacl3.api.LabelOption;
 import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.OptionGroup;
 import dev.isxander.yacl3.api.YetAnotherConfigLib;
+import io.github.milkucha.momentum.MomentumClient;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
-import dev.isxander.yacl3.api.controller.CyclingListControllerBuilder;
 import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
-import net.minecraft.client.util.InputUtil;
 import dev.isxander.yacl3.api.controller.ColorControllerBuilder;
 import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
@@ -28,8 +28,8 @@ public class MomentumConfigScreen {
 
         return YetAnotherConfigLib.createBuilder()
                 .title(Text.literal("Momentum"))
-                .category(general(cfg, def))
-                .category(oDrift(cfg, def, parent))
+                .category(general(cfg, def, parent))
+                .category(drift(cfg, def, parent))
                 .category(movement(cfg, def))
                 .category(steering(cfg, def))
                 .category(camera(cfg, def))
@@ -55,7 +55,7 @@ public class MomentumConfigScreen {
                         () -> cfg.movement.accelerationScale, v -> cfg.movement.accelerationScale = v,
                         1.0f, 10.0f, 0.1f))
                 .option(floatOpt("Brake Decay",
-                        "Speed lost per tick while braking (Space).\n\nHigher values = hard stop.\nLower values = soft, progressive braking.",
+                        "Speed lost per tick while braking.\n\nHigher values = hard stop.\nLower values = soft, progressive braking.",
                         def.movement.brakeDecay,
                         () -> cfg.movement.brakeDecay, v -> cfg.movement.brakeDecay = v,
                         0.001f, 0.1f, 0.001f))
@@ -143,58 +143,14 @@ public class MomentumConfigScreen {
     private static ConfigCategory hud(MomentumConfig cfg, MomentumConfig def) {
         return ConfigCategory.createBuilder()
                 .name(Text.literal("HUD"))
-                .option(boolOpt("Use Bar HUD",
-                        "Use the bar-based HUD. When off, uses the texture-based HUD.",
-                        def.hud.useBarHud,
-                        () -> cfg.hud.useBarHud, v -> cfg.hud.useBarHud = v))
-                .option(boolOpt("Debug Overlay",
-                        "Show steering/speed/drift debug values above the HUD.",
-                        def.hud.debug,
-                        () -> cfg.hud.debug, v -> cfg.hud.debug = v))
-                .group(OptionGroup.createBuilder()
-                        .name(Text.literal("Position"))
-                        .option(intOpt("X", "HUD X position. -1 = anchor from right using margin.",
-                                def.hud.x, () -> cfg.hud.x, v -> cfg.hud.x = v, -1, 1920, 1))
-                        .option(intOpt("Y", "HUD Y position. -1 = anchor from bottom using margin.",
-                                def.hud.y, () -> cfg.hud.y, v -> cfg.hud.y = v, -1, 1080, 1))
-                        .option(intOpt("Margin Right", "Pixels from the right edge when X = -1. Higher = further from edge.", def.hud.marginRight,
-                                () -> cfg.hud.marginRight, v -> cfg.hud.marginRight = v, 0, 500, 1))
-                        .option(intOpt("Margin Bottom", "Pixels from the bottom edge when Y = -1. Higher = further from edge.", def.hud.marginBottom,
-                                () -> cfg.hud.marginBottom, v -> cfg.hud.marginBottom = v, 0, 500, 1))
-                        .build())
-                .group(OptionGroup.createBuilder()
-                        .name(Text.literal("Bar Offsets"))
-                        .option(intOpt("Bar Offset X", "Horizontal offset of the speed bar sprite from the HUD panel origin.", def.hud.barOffsetX,
-                                () -> cfg.hud.barOffsetX, v -> cfg.hud.barOffsetX = v, -50, 200, 1))
-                        .option(intOpt("Bar Offset Y", "Vertical offset of the speed bar sprite from the HUD panel origin.", def.hud.barOffsetY,
-                                () -> cfg.hud.barOffsetY, v -> cfg.hud.barOffsetY = v, -50, 200, 1))
-                        .option(floatOpt("Bar Scale", "Scale of the speed bar sprite. Lower = smaller bar. Higher = larger bar.", def.hud.barScale,
-                                () -> cfg.hud.barScale, v -> cfg.hud.barScale = v, 0.1f, 5.0f, 0.05f))
-                        .build())
-                .group(OptionGroup.createBuilder()
-                        .name(Text.literal("Animation Offsets"))
-                        .option(intOpt("Anim Offset X", "Horizontal offset of the animated car sprite from the HUD panel origin.", def.hud.animOffsetX,
-                                () -> cfg.hud.animOffsetX, v -> cfg.hud.animOffsetX = v, -50, 200, 1))
-                        .option(intOpt("Anim Offset Y", "Vertical offset of the animated car sprite from the HUD panel origin.", def.hud.animOffsetY,
-                                () -> cfg.hud.animOffsetY, v -> cfg.hud.animOffsetY = v, -50, 200, 1))
-                        .option(floatOpt("Anim Scale", "Scale of the animated car sprite. Lower = smaller. Higher = larger.", def.hud.animScale,
-                                () -> cfg.hud.animScale, v -> cfg.hud.animScale = v, 0.1f, 5.0f, 0.05f))
-                        .build())
-                .group(OptionGroup.createBuilder()
-                        .name(Text.literal("Speed Text"))
-                        .option(intOpt("Speed Text Offset X", "Horizontal position of the km/h readout relative to the HUD panel origin.", def.hud.speedTextOffsetX,
-                                () -> cfg.hud.speedTextOffsetX, v -> cfg.hud.speedTextOffsetX = v, -100, 200, 1))
-                        .option(intOpt("Speed Text Offset Y", "Vertical position of the km/h readout relative to the HUD panel origin.", def.hud.speedTextOffsetY,
-                                () -> cfg.hud.speedTextOffsetY, v -> cfg.hud.speedTextOffsetY = v, -100, 200, 1))
-                        .build())
                 .group(OptionGroup.createBuilder()
                         .name(Text.literal("Debug Overlay Position"))
-                        .option(intOpt("Debug X", "Debug overlay X. -1 = anchor from right.",
-                                def.hud.debugX, () -> cfg.hud.debugX, v -> cfg.hud.debugX = v, -1, 1920, 1))
-                        .option(intOpt("Debug Y", "Vertical position of the debug overlay on screen.", def.hud.debugY,
-                                () -> cfg.hud.debugY, v -> cfg.hud.debugY = v, 0, 1080, 1))
-                        .option(intOpt("Debug Margin Right", "Pixels from the right edge when Debug X = -1. Higher = further from edge.", def.hud.debugMarginRight,
-                                () -> cfg.hud.debugMarginRight, v -> cfg.hud.debugMarginRight = v, 0, 500, 1))
+                        .option(intOpt("Debug X", "Debug overlay X. -1 = anchor from right using fraction.",
+                                def.barHud.debugX, () -> cfg.barHud.debugX, v -> cfg.barHud.debugX = v, -1, 1920, 1))
+                        .option(intOpt("Debug Y", "Vertical position of the debug overlay on screen.", def.barHud.debugY,
+                                () -> cfg.barHud.debugY, v -> cfg.barHud.debugY = v, 0, 1080, 1))
+                        .option(floatOpt("Debug X Fraction", "Fraction of screen width from right edge when Debug X = -1.", def.barHud.debugXFraction,
+                                () -> cfg.barHud.debugXFraction, v -> cfg.barHud.debugXFraction = v, 0.0f, 1.0f, 0.001f))
                         .build())
                 .group(OptionGroup.createBuilder()
                         .name(Text.literal("Bar  |  Position"))
@@ -202,8 +158,8 @@ public class MomentumConfigScreen {
                                 def.barHud.x, () -> cfg.barHud.x, v -> cfg.barHud.x = v, -1, 1920, 1))
                         .option(intOpt("Y", "Bar HUD Y. -1 = anchor from bottom.",
                                 def.barHud.y, () -> cfg.barHud.y, v -> cfg.barHud.y = v, -1, 1080, 1))
-                        .option(intOpt("Margin Right", "Pixels from the right edge when X = -1. Higher = further from edge.", def.barHud.marginRight,
-                                () -> cfg.barHud.marginRight, v -> cfg.barHud.marginRight = v, 0, 500, 1))
+                        .option(floatOpt("X Fraction", "Fraction of screen width from right edge when X = -1.", def.barHud.xFraction,
+                                () -> cfg.barHud.xFraction, v -> cfg.barHud.xFraction = v, 0.0f, 1.0f, 0.001f))
                         .option(intOpt("Margin Bottom", "Pixels from the bottom edge when Y = -1. Higher = further from edge.", def.barHud.marginBottom,
                                 () -> cfg.barHud.marginBottom, v -> cfg.barHud.marginBottom = v, 0, 500, 1))
                         .build())
@@ -252,53 +208,29 @@ public class MomentumConfigScreen {
 
     // ── General ───────────────────────────────────────────────────────────────
 
-    private static ConfigCategory general(MomentumConfig cfg, MomentumConfig def) {
-        return ConfigCategory.createBuilder()
-                .name(Text.literal("General"))
-                .option(boolOpt("Enable Momentum",
-                        "Turn the entire mod on or off. When off, Automobility's vanilla movement, HUD, and physics are used instead.",
-                        def.enabled,
-                        () -> cfg.enabled, v -> cfg.enabled = v))
-                .option(keyOpt("Brake Key",
-                        "Key that applies the Momentum brake.",
-                        def.brakeKey,
-                        () -> cfg.brakeKey, v -> cfg.brakeKey = v))
-                .option(keyOpt("O-Drift Key",
-                        "Key that activates the O-drift shortcut.",
-                        def.oDriftKey,
-                        () -> cfg.oDriftKey, v -> cfg.oDriftKey = v))
-                .build();
-    }
-
-    // ── O-Drift ───────────────────────────────────────────────────────────────
-
-    private static ConfigCategory oDrift(MomentumConfig cfg, MomentumConfig def, Screen parent) {
+    private static ConfigCategory general(MomentumConfig cfg, MomentumConfig def, Screen parent) {
 
         // Profile selector — applies immediately to config and rebuilds screen
         Option<MomentumConfig.ODrift.Profile> profileOpt =
                 Option.<MomentumConfig.ODrift.Profile>createBuilder()
                         .name(Text.literal("Drift Profile"))
                         .description(OptionDescription.of(Text.literal(
-                                "Which drift type the O key activates.\n\n" +
-                                "J — Automobility's own drift. No slip angle, just speed.\n" +
-                                "K — Arcade sideslip. Quick, precise, easy to control.\n" +
-                                "M — Deep slide. Wide angle, steering-driven, rewarding.\n\n" +
-                                "Default: K")))
+                                "Which drift behaviour is triggered by the Handbrake (drift) key.\n\n" +
+                                "Vanilla Drift    — Automobility's own drift. No slip angle, just speed.\n" +
+                                "Arcade Drift     — Quick sideslip. Precise and easy to control.\n" +
+                                "Responsive Drift — Deep slide. Wide angle, steering-driven, rewarding.\n\n" +
+                                "Default: Arcade Drift")))
                         .binding(def.oDrift.profile,
                                 () -> cfg.oDrift.profile,
                                 v  -> cfg.oDrift.profile = v)
                         .controller(opt -> EnumControllerBuilder.create(opt)
                                 .enumClass(MomentumConfig.ODrift.Profile.class)
                                 .formatValue(v -> Text.literal(switch (v) {
-                                    case J -> "J-Drift  (Automobility style)";
-                                    case K -> "K-Drift  (Arcade slip angle)";
-                                    case M -> "M-Drift  (Combined / smart)";
+                                    case VANILLA    -> "Vanilla Drift";
+                                    case ARCADE     -> "Arcade Drift";
+                                    case RESPONSIVE -> "Responsive Drift";
                                 })))
                         .listener((opt, val) -> {
-                            // YACL fires listeners immediately on option construction with the
-                            // current binding value. Guard against that here: if the value hasn't
-                            // actually changed we're in the initial fire — skip to avoid infinite
-                            // recursion (mc.execute runs synchronously on the render thread).
                             if (val == cfg.oDrift.profile) return;
                             cfg.oDrift.profile = val;
                             cfg.save();
@@ -307,39 +239,91 @@ public class MomentumConfigScreen {
                         })
                         .build();
 
-        // Build category with only the active profile's groups
+        // Build feature toggles individually so we can attach immediate-write listeners.
+        // YACL only calls the binding setter on Save, so without these listeners a
+        // profile switch (which calls cfg.save() + screen rebuild before Save is pressed)
+        // would lose any pending toggle changes.
+        Option<Boolean> movOpt = boolOpt("Movement",
+                "Enable all custom Movement features (coast, acceleration, braking, speed cap).",
+                def.movement.enabled,
+                () -> cfg.movement.enabled, v -> cfg.movement.enabled = v);
+        movOpt.addListener((opt, val) -> cfg.movement.enabled = val);
+
+        Option<Boolean> steerOpt = boolOpt("Steering",
+                "Enable all custom Steering features (ramp rate, center rate, understeer).",
+                def.steering.enabled,
+                () -> cfg.steering.enabled, v -> cfg.steering.enabled = v);
+        steerOpt.addListener((opt, val) -> cfg.steering.enabled = val);
+
+        Option<Boolean> camOpt = boolOpt("Camera",
+                "Enable all custom Camera features (lock, pitch, brake zoom).",
+                def.camera.enabled,
+                () -> cfg.camera.enabled, v -> cfg.camera.enabled = v);
+        camOpt.addListener((opt, val) -> cfg.camera.enabled = val);
+
+        Option<Boolean> hudOpt = boolOpt("HUD",
+                "Enable the custom Momentum HUD. When off, Automobility's built-in speedometer is used.",
+                def.barHud.enabled,
+                () -> cfg.barHud.enabled, v -> cfg.barHud.enabled = v);
+        hudOpt.addListener((opt, val) -> cfg.barHud.enabled = val);
+
+        return ConfigCategory.createBuilder()
+                .name(Text.literal("General"))
+                .option(boolOpt("Enable Momentum",
+                        "Turn the entire mod on or off. When off, Automobility's vanilla movement, HUD, and physics are used instead.",
+                        def.enabled,
+                        () -> cfg.enabled, v -> cfg.enabled = v))
+                .group(OptionGroup.createBuilder()
+                        .name(Text.literal("Features"))
+                        .option(profileOpt)
+                        .option(movOpt)
+                        .option(steerOpt)
+                        .option(camOpt)
+                        .option(hudOpt)
+                        .build())
+                .group(OptionGroup.createBuilder()
+                        .name(Text.literal("Key Bindings"))
+                        .option(LabelOption.create(Text.literal("Brake: ").append(MomentumClient.BRAKE_KEY.getBoundKeyLocalizedText())))
+                        .option(LabelOption.create(Text.literal("Handbrake (Drift): ").append(MomentumClient.DRIFT_KEY.getBoundKeyLocalizedText())))
+                        .build())
+                .build();
+    }
+
+    // ── Drift ─────────────────────────────────────────────────────────────────
+
+    private static ConfigCategory drift(MomentumConfig cfg, MomentumConfig def, Screen parent) {
+
         ConfigCategory.Builder b = ConfigCategory.createBuilder()
-                .name(Text.literal("Drift"))
-                .option(profileOpt);
+                .name(Text.literal("Drift"));
 
         switch (cfg.oDrift.profile) {
-            case K -> {
-                BoostGroup  kg = kDriftBoostGroup(cfg, def);
-                CameraGroup kc = kDriftCameraGroup(cfg, def);
-                b.group(buildGroupFromList("Slip",    kDriftSlipOptions(cfg, def)));
-                b.group(buildGroupFromList("Trigger", kDriftTriggerOptions(cfg, def)));
+            case ARCADE -> {
+                BoostGroup  kg = arcadeDriftBoostGroup(cfg, def);
+                CameraGroup kc = arcadeDriftCameraGroup(cfg, def);
+                b.group(buildGroupFromList("Slip",    arcadeDriftSlipOptions(cfg, def)));
+                b.group(buildGroupFromList("Trigger", arcadeDriftTriggerOptions(cfg, def)));
                 b.group(buildGroupFromList("Boost",   kg.all()));
                 b.group(buildGroupFromList("Camera",  kc.all()));
             }
-            case M -> {
-                List<Option<?>> mSlip = mDriftSlipOptions(cfg, def);
-                BoostGroup      mg    = mDriftBoostGroup(cfg, def);
-                CameraGroup     mc2   = mDriftCameraGroup(cfg, def);
+            case RESPONSIVE -> {
+                List<Option<?>> mSlip = responsiveDriftSlipOptions(cfg, def);
+                BoostGroup      mg    = responsiveDriftBoostGroup(cfg, def);
+                CameraGroup     mc2   = responsiveDriftCameraGroup(cfg, def);
                 b.group(buildGroupFromList("Slip",     mSlip));
-                b.group(buildGroupFromList("Steering", mDriftSteeringOptions(cfg, def)));
-                b.group(buildGroupFromList("Trigger",  mDriftTriggerOptions(cfg, def)));
+                b.group(buildGroupFromList("Steering", responsiveDriftSteeringOptions(cfg, def)));
+                b.group(buildGroupFromList("Trigger",  responsiveDriftTriggerOptions(cfg, def)));
                 b.group(buildGroupFromList("Boost",    mg.all()));
                 b.group(buildGroupFromList("Camera",   mc2.all()));
             }
-            case J -> { /* No groups — J uses Automobility defaults */ }
+            case VANILLA -> { /* No groups — Vanilla Drift uses Automobility defaults */ }
         }
 
         return b.build();
     }
 
-    // ── K-Drift group builders ────────────────────────────────────────────────
+    // ── Arcade Drift group builders ───────────────────────────────────────────
 
-    private static List<Option<?>> kDriftSlipOptions(MomentumConfig cfg, MomentumConfig def) {
+    private static List<Option<?>> arcadeDriftSlipOptions(MomentumConfig cfg, MomentumConfig def) {
         return List.of(
                 floatOpt("Slip Angle",
                         "Maximum sideways slide angle in degrees.\n\nHigher values = big dramatic sideslip.\nLower values = subtle drift.",
@@ -347,12 +331,12 @@ public class MomentumConfigScreen {
                         () -> cfg.kDrift.slipAngle, v -> cfg.kDrift.slipAngle = v,
                         0.0f, 45.0f, 0.5f),
                 floatOpt("Slip Converge Rate",
-                        "Degrees per tick the slip angle snaps toward its target while K is held.\n\nHigher values = instantaneous snap.\nLower values = slow ease-in.",
+                        "Degrees per tick the slip angle snaps toward its target while held.\n\nHigher values = instantaneous snap.\nLower values = slow ease-in.",
                         def.kDrift.slipConvergeRate,
                         () -> cfg.kDrift.slipConvergeRate, v -> cfg.kDrift.slipConvergeRate = v,
                         0.1f, 20.0f, 0.1f),
                 floatOpt("Slip Decay",
-                        "How fast the drift angle fades after K is released.\n\nHigher values = car straightens out quickly.\nLower values = drift lingers.",
+                        "How fast the drift angle fades after release.\n\nHigher values = car straightens out quickly.\nLower values = drift lingers.",
                         def.kDrift.slipDecay,
                         () -> cfg.kDrift.slipDecay, v -> cfg.kDrift.slipDecay = v,
                         0.0f, 5.0f, 0.05f),
@@ -364,10 +348,10 @@ public class MomentumConfigScreen {
         );
     }
 
-    private static List<Option<?>> kDriftTriggerOptions(MomentumConfig cfg, MomentumConfig def) {
+    private static List<Option<?>> arcadeDriftTriggerOptions(MomentumConfig cfg, MomentumConfig def) {
         return List.of(
                 floatOpt("Min Speed (km/h)",
-                        "Minimum car speed to trigger a K-drift.\n\nHigher values = requires more speed to start.\nLower values = can start from low speed.",
+                        "Minimum car speed to trigger an Arcade Drift.\n\nHigher values = requires more speed to start.\nLower values = can start from low speed.",
                         def.kDrift.minSpeedKmh,
                         () -> cfg.kDrift.minSpeedKmh, v -> cfg.kDrift.minSpeedKmh = v,
                         0.0f, 200.0f, 5.0f),
@@ -377,7 +361,7 @@ public class MomentumConfigScreen {
                         () -> cfg.kDrift.steerThreshold, v -> cfg.kDrift.steerThreshold = v,
                         0.0f, 1.0f, 0.05f),
                 intOpt("Min Hold Ticks",
-                        "K must be held this many ticks before drift can start.\n\nHigher values = adds a deliberate delay before starting.\nLower values = triggers almost instantly.",
+                        "Drift key must be held this many ticks before drift can start.\n\nHigher values = adds a deliberate delay before starting.\nLower values = triggers almost instantly.",
                         def.kDrift.minHoldTicks,
                         () -> cfg.kDrift.minHoldTicks, v -> cfg.kDrift.minHoldTicks = v,
                         0, 100, 1),
@@ -387,15 +371,15 @@ public class MomentumConfigScreen {
                         () -> cfg.kDrift.autoTriggerTicks, v -> cfg.kDrift.autoTriggerTicks = v,
                         0, 200, 1),
                 boolOpt("Brake Enabled",
-                        "When on, braking is applied while K is held but no drift has started yet.",
+                        "When on, braking is applied while drift key is held but no drift has started yet.",
                         def.kDrift.brakeEnabled,
                         () -> cfg.kDrift.brakeEnabled, v -> cfg.kDrift.brakeEnabled = v)
         );
     }
 
-    private static BoostGroup kDriftBoostGroup(MomentumConfig cfg, MomentumConfig def) {
+    private static BoostGroup arcadeDriftBoostGroup(MomentumConfig cfg, MomentumConfig def) {
         Option<Boolean> toggle   = boolOpt("Boost Enabled",
-                "Grant a speed burst when K-drift ends cleanly. Turn off to disable the boost entirely.",
+                "Grant a speed burst when Arcade Drift ends cleanly. Turn off to disable the boost entirely.",
                 def.kDrift.boostEnabled,
                 () -> cfg.kDrift.boostEnabled, v -> cfg.kDrift.boostEnabled = v);
         Option<Float>   boost    = floatOpt("Boost",
@@ -422,7 +406,7 @@ public class MomentumConfigScreen {
         return new BoostGroup(toggle, deps, all);
     }
 
-    private static CameraGroup kDriftCameraGroup(MomentumConfig cfg, MomentumConfig def) {
+    private static CameraGroup arcadeDriftCameraGroup(MomentumConfig cfg, MomentumConfig def) {
         Option<Boolean> toggle  = boolOpt("Camera Enabled",
                 "Swings the camera to follow the drift angle. Turn off to keep the camera fixed.",
                 def.kDrift.cameraEnabled,
@@ -451,9 +435,9 @@ public class MomentumConfigScreen {
         return new CameraGroup(toggle, deps, all);
     }
 
-    // ── M-Drift group builders ────────────────────────────────────────────────
+    // ── Responsive Drift group builders ──────────────────────────────────────
 
-    private static List<Option<?>> mDriftSlipOptions(MomentumConfig cfg, MomentumConfig def) {
+    private static List<Option<?>> responsiveDriftSlipOptions(MomentumConfig cfg, MomentumConfig def) {
         Option<Float>   slipAngle        = floatOpt("Slip Angle",
                 "Maximum sideways slide angle in degrees.\n\nHigher values = big dramatic sideslip.\nLower values = subtle drift.",
                 def.mDrift.slipAngle,
@@ -479,15 +463,13 @@ public class MomentumConfigScreen {
                 def.mDrift.constantAngle,
                 () -> cfg.mDrift.constantAngle, v -> cfg.mDrift.constantAngle = v);
 
-        // constantAngle=true → slipConvergeRate is bypassed, hide it
         constantAngle.addListener((opt, val) -> slipConvergeRate.setAvailable(!val));
         slipConvergeRate.setAvailable(!cfg.mDrift.constantAngle);
 
-        // Order: slipAngle[0], slipConvergeRate[1], slipDecay[2], slipDecaySpeedRef[3], constantAngle[4]
         return List.of(slipAngle, slipConvergeRate, slipDecay, slipDecaySpeedRef, constantAngle);
     }
 
-    private static List<Option<?>> mDriftSteeringOptions(MomentumConfig cfg, MomentumConfig def) {
+    private static List<Option<?>> responsiveDriftSteeringOptions(MomentumConfig cfg, MomentumConfig def) {
         return List.of(
                 floatOpt("Steer Sensitivity",
                         "Exponent on the steering accumulator.\n\nHigher values = requires sustained steering to reach full angle.\nLower values = slip angle builds more linearly.",
@@ -512,15 +494,15 @@ public class MomentumConfigScreen {
         );
     }
 
-    private static List<Option<?>> mDriftTriggerOptions(MomentumConfig cfg, MomentumConfig def) {
+    private static List<Option<?>> responsiveDriftTriggerOptions(MomentumConfig cfg, MomentumConfig def) {
         return List.of(
                 floatOpt("Min Speed (km/h)",
-                        "Minimum car speed to trigger an M-drift.\n\nHigher values = requires more speed to start.\nLower values = can start from low speed.",
+                        "Minimum car speed to trigger a Responsive Drift.\n\nHigher values = requires more speed to start.\nLower values = can start from low speed.",
                         def.mDrift.minSpeedKmh,
                         () -> cfg.mDrift.minSpeedKmh, v -> cfg.mDrift.minSpeedKmh = v,
                         0.0f, 200.0f, 5.0f),
                 intOpt("Min Hold Ticks",
-                        "M must be held this many ticks before drift can start.\n\nHigher values = adds a deliberate delay before starting.\nLower values = triggers almost instantly.",
+                        "Drift key must be held this many ticks before drift can start.\n\nHigher values = adds a deliberate delay before starting.\nLower values = triggers almost instantly.",
                         def.mDrift.minHoldTicks,
                         () -> cfg.mDrift.minHoldTicks, v -> cfg.mDrift.minHoldTicks = v,
                         0, 100, 1),
@@ -530,15 +512,15 @@ public class MomentumConfigScreen {
                         () -> cfg.mDrift.autoTriggerTicks, v -> cfg.mDrift.autoTriggerTicks = v,
                         0, 200, 1),
                 boolOpt("Brake Enabled",
-                        "When on, braking is applied while M is held but no drift has started yet.",
+                        "When on, braking is applied while drift key is held but no drift has started yet.",
                         def.mDrift.brakeEnabled,
                         () -> cfg.mDrift.brakeEnabled, v -> cfg.mDrift.brakeEnabled = v)
         );
     }
 
-    private static BoostGroup mDriftBoostGroup(MomentumConfig cfg, MomentumConfig def) {
+    private static BoostGroup responsiveDriftBoostGroup(MomentumConfig cfg, MomentumConfig def) {
         Option<Boolean> toggle   = boolOpt("Boost Enabled",
-                "Grant a speed burst when M-drift ends cleanly. Turn off to disable the boost entirely.",
+                "Grant a speed burst when Responsive Drift ends cleanly. Turn off to disable the boost entirely.",
                 def.mDrift.boostEnabled,
                 () -> cfg.mDrift.boostEnabled, v -> cfg.mDrift.boostEnabled = v);
         Option<Float>   boost    = floatOpt("Boost",
@@ -565,7 +547,7 @@ public class MomentumConfigScreen {
         return new BoostGroup(toggle, deps, all);
     }
 
-    private static CameraGroup mDriftCameraGroup(MomentumConfig cfg, MomentumConfig def) {
+    private static CameraGroup responsiveDriftCameraGroup(MomentumConfig cfg, MomentumConfig def) {
         Option<Boolean> toggle  = boolOpt("Camera Enabled",
                 "Swings the camera to follow the drift angle. Turn off to keep the camera fixed.",
                 def.mDrift.cameraEnabled,
@@ -652,31 +634,6 @@ public class MomentumConfigScreen {
                 .description(OptionDescription.of(descLine))
                 .binding(def, get, set)
                 .controller(BooleanControllerBuilder::create)
-                .build();
-    }
-
-    // Space + A–Z, in that order — covers all practical remapping choices.
-    private static final List<Integer> REMAP_KEYS;
-    static {
-        List<Integer> keys = new ArrayList<>();
-        keys.add(32); // Space
-        for (int k = 65; k <= 90; k++) keys.add(k); // A–Z
-        REMAP_KEYS = java.util.Collections.unmodifiableList(keys);
-    }
-
-    private static Option<Integer> keyOpt(String name, String desc, int defCode,
-            java.util.function.Supplier<Integer> get, java.util.function.Consumer<Integer> set) {
-        String defName = InputUtil.Type.KEYSYM.createFromCode(defCode).getLocalizedText().getString();
-        Text descLine = desc.isEmpty()
-                ? Text.literal("Default: " + defName)
-                : Text.literal(desc + "\n\nDefault: " + defName);
-        return Option.<Integer>createBuilder()
-                .name(Text.literal(name))
-                .description(OptionDescription.of(descLine))
-                .binding(defCode, get, set)
-                .controller(opt -> CyclingListControllerBuilder.create(opt)
-                        .values(REMAP_KEYS)
-                        .formatValue(code -> InputUtil.Type.KEYSYM.createFromCode(code).getLocalizedText()))
                 .build();
     }
 

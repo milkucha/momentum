@@ -32,7 +32,8 @@ public abstract class AutomobileHudMixin {
             DrawContext graphics,
             AutomobileEntity auto,
             CallbackInfo ci) {
-        if (!MomentumConfig.get().enabled) return;
+        MomentumConfig cfg = MomentumConfig.get();
+        if (!cfg.enabled || !cfg.barHud.enabled) return;
         ci.cancel();
     }
 

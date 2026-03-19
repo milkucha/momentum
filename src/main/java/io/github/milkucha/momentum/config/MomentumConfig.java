@@ -11,23 +11,20 @@ import java.nio.file.Path;
 public class MomentumConfig {
 
     public boolean enabled   = true;
-    public int     brakeKey  = 83;  // GLFW_KEY_S
-    public int     oDriftKey = 32;  // GLFW_KEY_SPACE
 
     public Movement movement = new Movement();
     public Steering steering = new Steering();
     public Camera  camera   = new Camera();
-    public Hud     hud      = new Hud();
     public BarHud  barHud   = new BarHud();
     public KDrift  kDrift   = new KDrift();
     public MDrift  mDrift   = new MDrift();
-    public NDrift  nDrift   = new NDrift();
     public ODrift  oDrift   = new ODrift();
     public Sound   sound    = new Sound();
 
     // ── Groups ────────────────────────────────────────────────────────────────
 
     public static class Movement {
+        public boolean enabled                = true;
         public float coastDecay               = 0.009f;
         public float accelerationScale        = 5.5f;
         public float brakeDecay               = 0.03f;
@@ -35,6 +32,7 @@ public class MomentumConfig {
     }
 
     public static class Steering {
+        public boolean enabled       = true;
         public float rampRate       = 0.12f;
         public float centerRate     = 0.42f;  // rate back to center when no steering key held
         public float understeer     = 3.0f;
@@ -42,6 +40,7 @@ public class MomentumConfig {
     }
 
     public static class Camera {
+        public boolean enabled            = true;
         public boolean lock               = true;
         public float   pitch              = 10f;
         public float   brakeZoomFov       = 0f;    // max FOV reduction clamp (degrees)
@@ -52,32 +51,12 @@ public class MomentumConfig {
         public float   brakeZoomDamping    = 0.90f; // velocity decay per tick (0=none,1=freeze)
     }
 
-    public static class Hud {
-        // Set to true to use the bar-based HUD instead of the texture-based one.
-        public boolean useBarHud       = true;
-        public int   x                = -1;
-        public int   y                = -1;
-        public int   marginRight      = 230;
-        public int   marginBottom     = 29;
-        public int   barOffsetX       = 22;
-        public int   barOffsetY       = 10;
-        public float barScale         = 1.0f;
-        public int   animOffsetX      = 4;
-        public int   animOffsetY      = 5;
-        public float animScale        = 1.0f;
-        public int   speedTextOffsetX = 30;
-        public int   speedTextOffsetY = 0;
-        public int   debugX           = -1;
-        public int   debugY           = 10;
-        public int   debugMarginRight = 10;
-        public boolean debug          = false;
-    }
-
     public static class BarHud {
+        public boolean enabled    = true;
         // Position. -1 = anchor to right/bottom edge using the margin fields.
         public int   x            = -1;
         public int   y            = -1;
-        public int   marginRight  = 212;
+        public float xFraction    = 0.33f;   // fraction of screenW from right edge; resolution-independent
         public int   marginBottom = 29;
 
         // Overall size of the velocimeter area in pixels.
@@ -104,6 +83,12 @@ public class MomentumConfig {
         public int   textOffsetY  = -10;
         // ARGB color of the speed text.
         public int   textColor    = 0xFFFFFFFF;
+
+        // Debug overlay.
+        public boolean debug          = false;
+        public int     debugX         = -1;
+        public int     debugY         = 10;
+        public float   debugXFraction = 0.016f; // fraction of screenW from right edge
     }
 
     public static class KDrift {
@@ -117,7 +102,7 @@ public class MomentumConfig {
         public boolean boostEnabled      = true;
         public boolean brakeEnabled      = true;
         public float   steerThreshold    = 0.1f;  // minimum |steering| to start drift (0 = any non-zero)
-        public int     minHoldTicks      = 0;     // ticks K must be held before drift can start
+        public int     minHoldTicks      = 0;     // ticks drift key must be held before drift can start
         public int     autoTriggerTicks  = 8;     // ticks before auto-start in random direction (0 = disabled)
         public float   minSpeedKmh       = 45.0f; // minimum speed to start drift
         public boolean cameraEnabled     = true;
@@ -129,7 +114,7 @@ public class MomentumConfig {
     public static class MDrift {
         public float   slipAngle         = 33f;
         public float   slipConvergeRate  = 0.18f; // fraction of remaining distance closed per tick (exponential ease-out toward target)
-        public float   slipDecay         = 1.3f;  // deg/tick removed on release (linear, same formula as K-drift)
+        public float   slipDecay         = 1.3f;  // deg/tick removed on release (linear, same formula as Arcade drift)
         public float   slipDecaySpeedRef = 0.6f;  // reference speed for speed-adjusted decay
         public float   boost             = 0.04f; // engine speed bonus on clean release
         public int     boostDuration     = 40;    // ticks the boost animation plays (20 ticks = 1 s)
@@ -152,10 +137,6 @@ public class MomentumConfig {
         public float   cameraLerpOut     = 0.25f;
     }
 
-    public static class NDrift {
-        public int brakeTicks = 7;
-    }
-
     public static class Sound {
         // km/h at which the engine sound reaches its pitch ceiling (Minecraft clamps pitch at 2.0).
         // Original Automobility value: ~91.7. Raise to hear pitch-bend continue to higher speeds.
@@ -163,8 +144,8 @@ public class MomentumConfig {
     }
 
     public static class ODrift {
-        public enum Profile { J, K, M }
-        public Profile profile = Profile.K;
+        public enum Profile { VANILLA, ARCADE, RESPONSIVE }
+        public Profile profile = Profile.ARCADE;
     }
 
     // ── Serialisation ─────────────────────────────────────────────────────────
@@ -194,15 +175,12 @@ public class MomentumConfig {
                     if (loaded.movement == null) loaded.movement = new Movement();
                     if (loaded.steering == null) loaded.steering = new Steering();
                     if (loaded.camera   == null) loaded.camera   = new Camera();
-                    if (loaded.hud      == null) loaded.hud      = new Hud();
                     if (loaded.barHud   == null) loaded.barHud   = new BarHud();
                     if (loaded.kDrift   == null) loaded.kDrift   = new KDrift();
                     if (loaded.mDrift   == null) loaded.mDrift   = new MDrift();
-                    if (loaded.nDrift   == null) loaded.nDrift   = new NDrift();
                     if (loaded.oDrift   == null) loaded.oDrift   = new ODrift();
+                    if (loaded.oDrift.profile == null) loaded.oDrift.profile = new ODrift().profile; // old JSON had J/K/M enum values
                     if (loaded.sound    == null) loaded.sound    = new Sound();
-                    if (loaded.brakeKey  == 0) loaded.brakeKey  = 83;
-                    if (loaded.oDriftKey == 0) loaded.oDriftKey = 32;
                     loaded.save();
                     return loaded;
                 }

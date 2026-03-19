@@ -25,6 +25,7 @@ public class AutomobileStatsMixin {
 
     @Inject(method = "getComfortableSpeed", at = @At("RETURN"), cancellable = true)
     private void momentum$scaleComfortableSpeed(CallbackInfoReturnable<Float> cir) {
+        if (!MomentumConfig.get().movement.enabled) return;
         cir.setReturnValue(cir.getReturnValue() * MomentumConfig.get().movement.comfortableSpeedMultiplier);
     }
 }

@@ -10,13 +10,10 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.random.Random;
 
 /**
- * Looping skid sound that plays while K-drift is active.
- * Stops itself when kDriftActive becomes false or the entity is removed.
- *
- * Uses Automobility's existing skid sound event (automobility:entity.automobile.skid).
- * Pitch scales with hSpeed so the screech naturally lowers as the car slows.
+ * Looping skid sound that plays while Vanilla Drift is active (drifting == true).
+ * Stops itself when drifting becomes false or the entity is removed.
  */
-public class KDriftSkidSound extends MovingSoundInstance {
+public class VanillaDriftSkidSound extends MovingSoundInstance {
 
     private static final Identifier SKID_ID =
             new Identifier("automobility", "entity.automobile.skid");
@@ -24,7 +21,7 @@ public class KDriftSkidSound extends MovingSoundInstance {
     private final AutomobileEntity automobile;
     private final SteeringDebugAccessor accessor;
 
-    public KDriftSkidSound(AutomobileEntity automobile) {
+    public VanillaDriftSkidSound(AutomobileEntity automobile) {
         super(resolveSound(), SoundCategory.AMBIENT, Random.create());
         this.automobile = automobile;
         this.accessor = (SteeringDebugAccessor) automobile;
@@ -49,7 +46,7 @@ public class KDriftSkidSound extends MovingSoundInstance {
             return;
         }
 
-        if (!accessor.momentum$isKDriftActive()) {
+        if (!accessor.momentum$isDrifting()) {
             setDone();
             return;
         }

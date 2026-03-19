@@ -8,7 +8,7 @@ Update the locks table when you start and clear your row when done/committed.
 ## Active locks
 | File | Agent | Status | Since |
 |---|---|---|---|
-| *(none)* | — | — | — |
+| *(none)* | | | |
 
 ---
 
@@ -19,20 +19,36 @@ Update the locks table when you start and clear your row when done/committed.
 
 ## Shared decisions
 
-### Space key → brake (current state)
-- Braking handled entirely via `MomentumBrakeState.brakeHeld` (volatile static, polled in `START_CLIENT_TICK` from GLFW). Read by `@Inject RETURN movementTick` in `AutomobileEntityMixin`.
-- Space no longer maps to `holdingDrift` at all — drift is fully decoupled (see J-key drift below).
-- *— Agent Sonnet 4.6 (2026-03-14, updated 2026-03-15)*
+### Brake key → registered Minecraft KeyBinding (2026-03-19)
+- `BRAKE_KEY` registered in `MomentumClient` as `key.momentum.brake`, default S, category `key.categories.momentum`.
+- Held state read via `isKeyHeld(BRAKE_KEY, win)` which reads `InputUtil.fromKeyName(binding.getBoundKeyTranslationKey())` → GLFW query. Respects player remapping.
+- `MomentumConfig.brakeKey` field removed — no longer in config or YACL screen.
+- *— Agent Sonnet 4.6 (2026-03-19)*
 
-### J key → transplanted drift (confirmed working 2026-03-15)
+### Drift key → registered Minecraft KeyBinding (2026-03-19)
+- `DRIFT_KEY` registered in `MomentumClient` as `key.momentum.handbrake_drift`, default Space, category `key.categories.momentum`.
+- Single key triggers the active drift profile (Vanilla/Arcade/Responsive) — replaces J/K/M/N/O hardcoded keys.
+- `MomentumDriftState` simplified to one field: `driftKeyHeld`. Held state polled from `DRIFT_KEY` each tick.
+- `MomentumConfig.oDriftKey` field removed.
+- *— Agent Sonnet 4.6 (2026-03-19)*
+
+### Drift renaming (2026-03-19)
+- O-drift → **Drift** (the registered keybinding; profile selects behaviour)
+- J-drift → **Vanilla Drift** (`ODrift.Profile.VANILLA`)
+- K-drift → **Arcade Drift** (`ODrift.Profile.ARCADE`)
+- M-drift → **Responsive Drift** (`ODrift.Profile.RESPONSIVE`)
+- N-drift → **removed entirely** (code, config, sound, packet fields)
+- H-drift → was never implemented
+- Sound files renamed: `JDriftSkidSound` → `VanillaDriftSkidSound`, `KDriftSkidSound` → `ArcadeDriftSkidSound`, `MDriftSkidSound` → `ResponsiveDriftSkidSound`. `NDriftSkidSound` deleted.
+- *— Agent Sonnet 4.6 (2026-03-19)*
+
+### Vanilla Drift (formerly J-drift, confirmed working 2026-03-15)
 - Automobility's `driftingTick()` is fully replaced by `@Inject HEAD driftingTick cancellable=true` in `AutomobileEntityMixin`.
-- J key state polled in `START_CLIENT_TICK` → `MomentumDriftState.driftKeyHeld` (volatile static).
-- Rising/falling edge tracked per entity via `@Unique boolean momentum$prevDriftKeyHeld` (instance field) — avoids client/server race on a shared static.
-- Logic is a direct transplant of Automobility source: rising edge starts drift (requires steering≠0, hSpeed>0.4, onGround, !drifting), falling edge calls `consumeTurboCharge()`, too-slow cancels with no boost. `turboCharge` increments 2/tick when steering matches driftDir, else 1/tick.
-- Controller rumble calls omitted (keyboard-only mod).
-- Writes directly to shadowed `drifting`/`driftDir`/`turboCharge` fields so all existing Momentum guards (understeer bypass, steering ramp, brake skip) work without changes.
-- **Ground check:** `automobileOnGround()` (Automobility's custom detection) always returns false for this entity — it uses a 0.04-block scan below `getBoundingBox().minY` which misses because the entity floats slightly above the block surface. Use `((Entity)(Object)this).isOnGround()` (Minecraft's native flag, set by `move()`) everywhere instead.
-- *— Agent Sonnet 4.6 (2026-03-15)*
+- Now fires when `momentum$vanillaDriftKey()` = driftKey held AND profile == VANILLA.
+- Rising/falling edge tracked per entity via `@Unique boolean momentum$prevDriftKeyHeld` (instance field).
+- Logic: rising edge starts drift (requires steering≠0, hSpeed>0.4, onGround, !drifting), falling edge calls `consumeTurboCharge()`, too-slow cancels with no boost. `turboCharge` increments 2/tick when steering matches driftDir, else 1/tick.
+- **Ground check:** `automobileOnGround()` always returns false — use `((Entity)(Object)this).isOnGround()` everywhere.
+- *— Agent Sonnet 4.6 (2026-03-15, updated 2026-03-19)*
 
 ### Brake decay — current state (linear, working)
 Pure linear inject in `AutomobileEntityMixin` at `@Inject RETURN movementTick`:
@@ -69,23 +85,15 @@ Two-part fix:
 - Config fields: `brakeZoomFov=10`, `brakeZoomInputScale=30`, `brakeZoomSpring=0.06`, `brakeZoomDamping=0.90`. Old `brakeZoomLerp` field removed (Gson ignores stale keys in existing JSON).
 - *— Agent Sonnet 4.6 (2026-03-16)*
 
-### N-key drift — brake-then-drift (2026-03-15)
-- `@Inject HEAD movementTick` in `AutomobileEntityMixin` — fully independent of J and K.
-- N held → applies `brakeDecay` every tick + increments `nBrakeTimer`. Once `nBrakeTimer >= nDriftBrakeTicks` (config, default 15) AND drift conditions are met, calls `setDrifting(true)` + sets `driftDir` + speed kick (identical to J rising edge).
-- During drift: continues applying `brakeDecay` each tick. If drift cancelled externally (hSpeed < 0.33 via J-drift's driftingTick inject), clears `nDriftArmed` so next press starts fresh.
-- N released while armed + drifting: `setDrifting(false); consumeTurboCharge()` — same as J falling edge.
-- Particles and turboCharge handled automatically by J-drift's `driftingTick` inject (fires whenever `drifting == true` regardless of which key triggered it).
-- New config field: `nDriftBrakeTicks = 15`.
-- *— Agent Sonnet 4.6 (2026-03-15)*
+### N-drift — REMOVED (2026-03-19)
+- Brake-then-drift behaviour removed. N key, `NDrift` config, `nDriftKeyHeld`, `NDriftSkidSound`, and packet field deleted.
+- *— Agent Sonnet 4.6 (2026-03-19)*
 
-### O-key drift shortcut (2026-03-16)
-- `MomentumConfig.oDrift.profile` — enum `{ J, K, M }`, default `K`. Selects which drift type the configurable O key activates.
-- `oDriftKey` (int, default `79` = GLFW_KEY_O) — configurable in YACL "General" category via `KeyCodeControllerBuilder`.
-- `MomentumDriftState.oKeyHeld` volatile static, polled in `START_CLIENT_TICK` alongside the other keys.
-- Two effective-key helpers in mixin: `momentum$kEffectiveKey()` = `kKey || (oKey && profile==K)`, `momentum$mEffectiveKey()` = `mKey || (oKey && profile==M)`. J-drift already reads `oKey && profile==J` inline.
-- `KeyStatePacket` extended to 6 booleans (brake, J, K, N, M, O). `ServerKeyState` has a matching `getO()` getter. `pktO` snapshot field added to `MomentumClient`.
-- YACL "Drift" category dynamically rebuilds its groups based on `oDrift.profile` — K shows K-drift groups, M shows M-drift groups, J shows nothing (Automobility defaults). Profile listener rebuilds screen on change.
-- *— Agent Sonnet 4.6 (2026-03-16)*
+### Drift profile selector (2026-03-16, updated 2026-03-19)
+- `MomentumConfig.oDrift.profile` — enum `{ VANILLA, ARCADE, RESPONSIVE }` (renamed from J/K/M), default `ARCADE`.
+- Single `DRIFT_KEY` KeyBinding triggers whichever profile is active. Three profile-gated helpers in mixin: `momentum$vanillaDriftKey()`, `momentum$arcadeDriftKey()`, `momentum$responsiveDriftKey()`.
+- YACL "Drift" category dynamically rebuilds its groups based on `oDrift.profile` — ARCADE shows Arcade groups, RESPONSIVE shows Responsive groups, VANILLA shows nothing. Profile listener rebuilds screen on change.
+- *— Agent Sonnet 4.6 (2026-03-16, updated 2026-03-19)*
 
 ### Steering center rate — separate from ramp rate (2026-03-16)
 - `MomentumConfig.Steering.centerRate` added (default `0.42f`). Controls how fast steering returns to centre when no key is held.
@@ -98,6 +106,14 @@ Two-part fix:
 - Added `@ModifyConstant(doubleValue = 0.5)` in `movementTick` → returns `Double.MAX_VALUE` when Momentum is enabled, making `hSpeed > Double.MAX_VALUE` permanently false. The gate is bypassed entirely.
 - Momentum's understeer system already handles speed-based corner resistance; the gate was redundant and caused sluggish corner acceleration.
 - *— Agent Sonnet 4.6 (2026-03-16)*
+
+### HUD horizontal position — xFraction (2026-03-19)
+- `marginRight: int` replaced by `xFraction: float` (0.0–1.0) in both `Hud` and `BarHud` config classes. Same for `debugMarginRight` → `debugXFraction`.
+- Formula: `panelX = screenW - FRAME_W - (int)(screenW * xFraction)`. Scales proportionally so the HUD stays at the same relative X regardless of windowed vs fullscreen.
+- Defaults: `hud.xFraction=0.36f`, `barHud.xFraction=0.33f`, `hud.debugXFraction=0.016f`. User should re-tune once via options screen.
+- YACL "Margin Right" int sliders replaced with "X Fraction" float sliders (0.0–1.0, step 0.01).
+- Old `marginRight` JSON key is silently ignored by GSON on next load.
+- *— Agent Sonnet 4.6 (2026-03-19)*
 
 ### Bar HUD (2026-03-16)
 - `MomentumConfig.BarHud` inner class — position (`x`, `y`, `marginRight`, `marginBottom`), size (`totalWidth`, `totalHeight`, `barWidth`, `barSpacing`), `maxSpeedKmh` cap, `barColor`, `boostBarColor`, `textColor`, text offset.
@@ -132,16 +148,25 @@ Two-part fix:
 - **No changes needed** to HUD, camera, or sound — all pure client rendering.
 - *— Agent Sonnet 4.6 (2026-03-15)*
 
+### Options screen — feature toggles + General tab reorganisation (2026-03-19)
+- **Drift Profile selector** moved from the Drift tab to the General tab (sits below "Enable Momentum"). Drift tab now shows only the active profile's tuning groups.
+- **Feature toggles** group added to General tab: one toggle each for Movement, Steering, Camera, HUD. Toggle controls both the UI display in that session and runtime behaviour — guarded in the relevant mixin/client code.
+- **Read-only key labels** added at the bottom of General tab: "Brake: [key]" and "Handbrake (Drift): [key]" via `LabelOption`, reflecting whatever the player has bound in Options → Controls.
+- **Debug Overlay** option removed from HUD tab UI. `hud.debug` field remains in `MomentumConfig.Hud` and in `momentum.json` — edit manually if needed.
+- **Config additions**: `movement.enabled`, `steering.enabled`, `camera.enabled`, `hud.enabled` (all `true` by default). Old configs will pick up the defaults gracefully via Gson.
+- **Runtime guards**: `movement.enabled` gates coast/accel/brake/comfortable-speed mixin paths + vanilla brake decay suppression + back-input suppression; `steering.enabled` gates ramp-rate and understeer modifiers; `camera.enabled` gates lock, pitch, and brake-zoom; `hud.enabled` gates the HUD render callback.
+- *— Agent Sonnet 4.6 (2026-03-19)*
+
+---
+
 ## Pending before release
 
 | # | Task | Notes |
 |---|---|---|
-| 1 | **Key mapping via Minecraft controls menu** | Replace the cycling key-picker in the Momentum options screen with proper Minecraft `KeyBinding` registrations. The options screen should show read-only labels ("Brake: [key]", "Drift: [key]") that reflect whatever the player has bound in Options → Controls. Affects: brake key, all drift keys (J/K/N/M/O). |
-| 2 | **Codebase audit — inconsistencies & redundancies** | Full pass over all source files before release. Look for: dead code paths, leftover debug logs, duplicate config lookups, stale imports, and any mixin fields/helpers that were superseded but not removed. |
-| 3 | **Multiplayer / server support — untested** | The C2S packet + `ServerKeyState` path was written but never run on a real dedicated server. Must be tested before release. |
-| 4 | **Mod icon rework** | Current icon needs replacement. |
+| 1 | **Codebase audit — inconsistencies & redundancies** | Full pass over all source files before release. Look for: dead code paths, leftover debug logs, duplicate config lookups, stale imports, and any mixin fields/helpers that were superseded but not removed. |
+| 2 | **Multiplayer / server support — untested** | The C2S packet + `ServerKeyState` path was written but never run on a real dedicated server. Must be tested before release. |
 
-*— Agent Sonnet 4.6 (2026-03-17)*
+*— Agent Sonnet 4.6 (2026-03-17, updated 2026-03-19)*
 
 ---
 
@@ -155,18 +180,19 @@ Two-part fix:
 | Speed-based understeer | `@ModifyArg AUtils.shift ordinal 1 index 2` in `postMovementTick` | ✅ done |
 | Brake decay (formula) | `@Inject RETURN movementTick` + `MomentumBrakeState` | ✅ done (linear, `brakeDecay = 0.012f`) |
 | Space → brake remapping | `@Inject RETURN movementTick` + `MomentumBrakeState` | ✅ done |
-| J-key drift (transplanted from Automobility) | `@Inject HEAD driftingTick cancellable=true` in `AutomobileEntityMixin` | ✅ done + confirmed working 2026-03-15 |
-| K-key arcade drift (slip angle) | `@Inject HEAD+RETURN movementTick` + `MomentumDriftState.kDriftKeyHeld` | ✅ done + confirmed working 2026-03-15 |
-| K-drift skid sound | `KDriftSkidSound` (looping `MovingSoundInstance`), played on rising edge of `kDriftActive` in `END_CLIENT_TICK` | ✅ done — Agent Sonnet 4.6 (2026-03-15) |
-| N-key brake-then-drift | `@Inject HEAD movementTick` in `AutomobileEntityMixin` + `MomentumDriftState.nDriftKeyHeld` | ✅ done — Agent Sonnet 4.6 (2026-03-15) |
+| Vanilla Drift (transplanted from Automobility) | `@Inject HEAD driftingTick cancellable=true`; fires when profile==VANILLA + drift key held | ✅ done — renamed 2026-03-19 |
+| Arcade Drift (slip angle) | `@Inject HEAD+RETURN movementTick`; fires when profile==ARCADE + drift key held | ✅ done — renamed 2026-03-19 |
+| Arcade Drift skid sound | `ArcadeDriftSkidSound` (looping `MovingSoundInstance`), played on rising edge of `kDriftActive` | ✅ done — renamed 2026-03-19 |
+| N-drift | ~~removed~~ | ❌ deleted 2026-03-19 |
 | Comfortable speed multiplier | `@Inject AutomobileStats.getComfortableSpeed RETURN` | ✅ done |
 | Camera lock | `END_CLIENT_TICK` in `MomentumClient` | ✅ done |
 | HUD suppression | `@Inject AutomobileHud.renderSpeedometer HEAD cancel` | ✅ done |
 | Custom HUD | `MomentumHud` + `HudRenderCallback` | ✅ done |
-| M-key dual-mode drift | `@Inject HEAD+RETURN movementTick` + `MomentumDriftState.mKeyHeld`; steering≠0 → slip-angle drift w/ accumulator + boost; steering=0 → brake | ✅ done — Agent Sonnet 4.6 (2026-03-16, retroactive entry) |
-| Multiplayer (dedicated server) | C2S `KeyStatePacket` (6 bools) + `ServerKeyState` + dual-path helpers in mixin | ⚠️ coded, **untested** — must test on real dedicated server before release |
-| O-key drift shortcut | `oDriftKey` config + `ODrift.Profile` enum; `momentum$kEffectiveKey()`/`momentum$mEffectiveKey()` helpers; YACL Drift category rebuilds on profile change | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
+| Responsive Drift (deep slide) | `@Inject HEAD+RETURN movementTick`; fires when profile==RESPONSIVE + drift key held; steering≠0 → slip-angle w/ accumulator + boost; steering=0 → brake | ✅ done — renamed 2026-03-19 |
+| Multiplayer (dedicated server) | C2S `KeyStatePacket` (2 bools: brake+drift) + `ServerKeyState` + dual-path helpers in mixin | ⚠️ coded, **untested** — must test on real dedicated server before release |
+| Drift profile selector (Handbrake key) | `DRIFT_KEY` KeyBinding (Space); `ODrift.Profile` enum {VANILLA/ARCADE/RESPONSIVE}; YACL Drift category rebuilds on profile change | ✅ done — Agent Sonnet 4.6 (2026-03-19) |
+| Brake KeyBinding | `BRAKE_KEY` KeyBinding (S); held state read via `isKeyHeld()`; removed from config | ✅ done — Agent Sonnet 4.6 (2026-03-19) |
 | Steering center rate | `@ModifyConstant(0.42f)` returns `centerRate` on release vs `rampRate` when steering | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
 | Acceleration steering gate removal | `@ModifyConstant(doubleValue=0.5)` → `Double.MAX_VALUE` in `movementTick` | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
 | Bar HUD | `BarHud` renderer + `hud.useBarHud` toggle; `BarHud` config group in YACL HUD category | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
-| YACL in-game config screen | `MomentumConfigScreen` (`.` key) with all six categories; greyed-out dependent options | ✅ done — Agent Sonnet 4.6 (2026-03-16) — key fields to be replaced with read-only labels once Minecraft `KeyBinding` integration is done (see Pending #1) |
+| YACL in-game config screen | `MomentumConfigScreen` (`.` key) with all six categories; greyed-out dependent options; key pickers removed (use MC controls screen) | ✅ done — Agent Sonnet 4.6 (2026-03-16, updated 2026-03-19) |
