@@ -23,6 +23,31 @@ A fully configurable add-on for [Automobility](https://modrinth.com/mod/automobi
 
 All parameters can be tweaked and/or toggled via the config file or the options menu (if ModMenu and YACL are available)
 
+<div align="center">
+<img src="https://i.imgur.com/flWrXBN.gif" alt="drift" style="display: block; margin: 0 auto;">
+</div>
+<p align=center>Cruise at higher speeds!</p>
+
+<div align="center">
+<img src="https://i.imgur.com/m6y1IXY.gif" alt="drift" style="display: block; margin: 0 auto;">
+</div>
+<p align=center>Progressive braking</p>
+
+<div align="center">
+<img src="https://i.imgur.com/V6vRb5b.gif" alt="drift" style="display: block; margin: 0 auto;">
+</div>
+<p align=center>Responsive drifting</p>
+
+<div align="center">
+<img src="https://i.imgur.com/KaKj05f.gif" alt="drift" style="display: block; margin: 0 auto;">
+</div>
+<p align=center>Camera effects</p>
+
+<div align="center">
+<img src="https://i.imgur.com/uEtwTne.gif" alt="drift" style="display: block; margin: 0 auto;">
+</div>
+<p align=center>Configurable interface</p>
+
 Still in BETA - currently working on 1.18.2, 1.19.2, 1.20, 1.21, 1.21.1 support.
 
 Built with support from Claude Code.
