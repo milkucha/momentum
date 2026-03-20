@@ -77,6 +77,24 @@ Two-part fix:
 - Controlled by `lockCamera` (bool) and `lockCameraPitch` (float, degrees) in config.
 - *— Agent Sonnet 4.6 (2026-03-14)*
 
+### Reverse camera flip (2026-03-20)
+- `reverseYawOffset` (float, `MomentumClient`) lerps toward `180f` when `accessor.momentum$getEngineSpeed() < -0.01f`, back to `0f` otherwise.
+- Lerp each tick: `reverseYawOffset += (target - reverseYawOffset) * cfg.camera.reverseFlipLerp` — exponential ease-out naturally built in.
+- Added to player yaw alongside all other offsets: `auto.getYaw() + … + reverseYawOffset`.
+- Config: `camera.reverseFlip = true`, `camera.reverseFlipLerp = 0.2f`.
+- YACL: "Reverse Camera" group in Camera category (toggle + speed slider).
+- Reset to 0 in `resetTickState()`.
+- *— Agent Sonnet 4.6 (2026-03-20)*
+
+### Steering tilt camera (2026-03-20)
+- `steeringTiltOffset` (float, `MomentumClient`) lerps toward `accessor.momentum$getSteering() * cfg.camera.steeringTilt` each tick.
+- Lerp factor: `cfg.camera.steeringTiltLerp` (default `0.1f`).
+- Added to the player yaw alongside drift camera offsets: `auto.getYaw() + kCameraDriftYawOffset + mCameraDriftYawOffset + steeringTiltOffset`.
+- Config: `camera.steeringTilt = 5f` (degrees at ±1 steering), `camera.steeringTiltLerp = 0.1f`.
+- YACL: "Steering Tilt" + "Steering Tilt Lerp" options in Camera → Lock group.
+- Reset to 0 in `resetTickState()`.
+- *— Agent Sonnet 4.6 (2026-03-20)*
+
 ### Brake zoom — inertia spring-damper (2026-03-16)
 - Replaced the binary-lerp zoom (`anyBraking ? brakeZoomFov : 0`, lerp factor) with a spring-mass-damper driven by **actual deceleration** (`prevHSpeed - hSpeed` clamped ≥ 0).
 - Physics each tick: `velocity = velocity * damping + decel * inputScale - spring * offset; offset += velocity` — no key-state gate needed.
@@ -204,6 +222,8 @@ Two-part fix:
 | Multiplayer (dedicated server) | C2S `KeyStatePacket` (2 bools: brake+drift) + `ServerKeyState` + dual-path helpers in mixin | ⚠️ coded, **untested** — must test on real dedicated server before release |
 | Drift profile selector (Handbrake key) | `DRIFT_KEY` KeyBinding (Space); `ODrift.Profile` enum {VANILLA/ARCADE/RESPONSIVE}; YACL Drift category rebuilds on profile change | ✅ done — Agent Sonnet 4.6 (2026-03-19) |
 | Brake KeyBinding | `BRAKE_KEY` KeyBinding (S); held state read via `isKeyHeld()`; removed from config | ✅ done — Agent Sonnet 4.6 (2026-03-19) |
+| Steering tilt camera | `steeringTiltOffset` lerps toward `steering * steeringTilt`; added to player yaw alongside drift offsets | ✅ done — Agent Sonnet 4.6 (2026-03-20) |
+| Reverse camera flip | `reverseYawOffset` lerps 0→180° when `engineSpeed < -0.01f`; ease-out via exponential lerp | ✅ done — Agent Sonnet 4.6 (2026-03-20) |
 | Steering center rate | `@ModifyConstant(0.42f)` returns `centerRate` on release vs `rampRate` when steering | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
 | Acceleration steering gate removal | `@ModifyConstant(doubleValue=0.5)` → `Double.MAX_VALUE` in `movementTick` | ✅ done — Agent Sonnet 4.6 (2026-03-16) |
 | Bar HUD | `BarHud` renderer + `hud.useBarHud` toggle; `BarHud` config group in YACL HUD category | ✅ done — Agent Sonnet 4.6 (2026-03-16) |

@@ -111,6 +111,28 @@ public class MomentumConfigScreen {
                                 def.camera.pitch,
                                 () -> cfg.camera.pitch, v -> cfg.camera.pitch = v,
                                 -45.0f, 45.0f, 0.5f))
+                        .option(floatOpt("Steering Tilt",
+                                "Degrees of camera yaw offset at full steering lock.\n\nThe camera leans slightly toward the turn direction — gives a sense of the car banking into corners.\n\nHigher values = more dramatic lean.\nLower values = subtle or none.",
+                                def.camera.steeringTilt,
+                                () -> cfg.camera.steeringTilt, v -> cfg.camera.steeringTilt = v,
+                                0.0f, 20.0f, 0.5f))
+                        .option(floatOpt("Steering Tilt Lerp",
+                                "How quickly the camera lean tracks the steering input.\n\nHigher values = snappy, follows immediately.\nLower values = smooth, weighted follow.",
+                                def.camera.steeringTiltLerp,
+                                () -> cfg.camera.steeringTiltLerp, v -> cfg.camera.steeringTiltLerp = v,
+                                0.01f, 1.0f, 0.01f))
+                        .build())
+                .group(OptionGroup.createBuilder()
+                        .name(Text.literal("Reverse Camera"))
+                        .option(boolOpt("Reverse Camera",
+                                "Flips the camera 180° when the car moves in reverse. Returns to forward when moving normally again.",
+                                def.camera.reverseFlip,
+                                () -> cfg.camera.reverseFlip, v -> cfg.camera.reverseFlip = v))
+                        .option(floatOpt("Reverse Flip Speed",
+                                "How quickly the camera sweeps to 180° when reversing (and back when moving forward).\n\nHigher values = faster snap with ease-out.\nLower values = slow, gradual rotation.",
+                                def.camera.reverseFlipLerp,
+                                () -> cfg.camera.reverseFlipLerp, v -> cfg.camera.reverseFlipLerp = v,
+                                0.01f, 1.0f, 0.01f))
                         .build())
                 .group(OptionGroup.createBuilder()
                         .name(Text.literal("Brake Zoom"))

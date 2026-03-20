@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.network.PacketByteBuf;
@@ -37,6 +38,8 @@ public class MomentumClient implements ClientModInitializer {
     private boolean prevResponsiveDriftActive = false;
     private float   kCameraDriftYawOffset  = 0f;
     private float   mCameraDriftYawOffset  = 0f;
+    private float   steeringTiltOffset     = 0f;
+    private float   reverseYawOffset       = 0f;
     private float   brakeZoomVelocity      = 0f;
     private float   prevHSpeed             = 0f;
 
@@ -58,12 +61,17 @@ public class MomentumClient implements ClientModInitializer {
                 "key.categories.momentum"
         ));
 
-        KeyBinding openOptionsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.momentum.open_options",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_PERIOD,
-                "key.categories.momentum"
-        ));
+        final KeyBinding openOptionsKey;
+        if (FabricLoader.getInstance().isModLoaded("yet_another_config_lib_v3")) {
+            openOptionsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                    "key.momentum.open_options",
+                    InputUtil.Type.KEYSYM,
+                    GLFW.GLFW_KEY_PERIOD,
+                    "key.categories.momentum"
+            ));
+        } else {
+            openOptionsKey = null;
+        }
 
         // ── HUD rendering ─────────────────────────────────────────────────────
 
@@ -109,7 +117,7 @@ public class MomentumClient implements ClientModInitializer {
                 MomentumConfig.reload();
                 client.player.sendMessage(Text.literal("[Momentum] Config reloaded"), true);
             }
-            if (openOptionsKey.wasPressed()) {
+            if (openOptionsKey != null && openOptionsKey.wasPressed()) {
                 client.execute(() -> client.setScreen(
                     io.github.milkucha.momentum.config.MomentumConfigScreen.create(null)));
             }
@@ -137,8 +145,19 @@ public class MomentumClient implements ClientModInitializer {
                 mCameraDriftYawOffset += (mTarget - mCameraDriftYawOffset)
                         * (responsiveDriftCamActive ? cfg.responsiveDrift.cameraLerpIn : cfg.responsiveDrift.cameraLerpOut);
 
+                // Steering tilt: subtle yaw lean toward the turn direction.
+                float tiltTarget = cfg.camera.enabled
+                        ? accessor.momentum$getSteering() * cfg.camera.steeringTilt : 0f;
+                steeringTiltOffset += (tiltTarget - steeringTiltOffset) * cfg.camera.steeringTiltLerp;
+
+                // Reverse camera: lerp to 180° offset when engine speed is negative.
+                boolean reversing = cfg.camera.enabled && cfg.camera.reverseFlip
+                        && accessor.momentum$getEngineSpeed() < -0.01f;
+                float reverseTarget = reversing ? 180f : 0f;
+                reverseYawOffset += (reverseTarget - reverseYawOffset) * cfg.camera.reverseFlipLerp;
+
                 if (cfg.camera.enabled && cfg.camera.lock) {
-                    client.player.setYaw(auto.getYaw() + kCameraDriftYawOffset + mCameraDriftYawOffset);
+                    client.player.setYaw(auto.getYaw() + kCameraDriftYawOffset + mCameraDriftYawOffset + steeringTiltOffset + reverseYawOffset);
                     client.player.setPitch(cfg.camera.pitch);
                 }
 
@@ -203,6 +222,8 @@ public class MomentumClient implements ClientModInitializer {
         prevResponsiveDriftActive = false;
         kCameraDriftYawOffset              = 0f;
         mCameraDriftYawOffset              = 0f;
+        steeringTiltOffset                 = 0f;
+        reverseYawOffset                   = 0f;
         brakeZoomVelocity                  = 0f;
         prevHSpeed                         = 0f;
         MomentumBrakeState.brakeZoomOffset = 0f;

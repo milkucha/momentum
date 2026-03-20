@@ -41,14 +41,21 @@ public class MomentumConfig {
         public boolean enabled       = true;
         public float rampRate       = 0.12f;
         public float centerRate     = 0.42f;  // rate back to center when no steering key held
-        public float understeer     = 3.0f;
-        public float understeerCurve = 2.0f;
+        public float understeer     = 2.0f;
+        public float understeerCurve = 3.0f;
     }
 
     public static class Camera {
         public boolean enabled            = true;
         public boolean lock               = true;
         public float   pitch              = 10f;
+        // Steering lean: camera yaw offset proportional to steering (−1..1).
+        // At full lock the camera swings steeringTilt degrees toward the turn direction.
+        public float   steeringTilt       = 5f;    // max degrees of yaw offset at full lock
+        public float   steeringTiltLerp   = 0.1f;  // lerp factor per tick (higher = snappier)
+        // Reverse camera: flips 180° when engineSpeed < 0, returns when moving forward.
+        public boolean reverseFlip        = true;
+        public float   reverseFlipLerp    = 0.2f;  // lerp factor per tick (ease-out toward 180°)
         public float   brakeZoomFov       = 10f;   // max FOV reduction clamp (degrees)
         // Spring-damper brake zoom: deceleration (hSpeed delta/tick) drives a mass-spring camera.
         // When the vehicle stops, accumulated velocity carries the zoom briefly — inertia feel.
@@ -81,7 +88,7 @@ public class MomentumConfig {
         public int   barColor     = 0xFFFFFFFF;
         // ARGB color of bar segments that represent the boost contribution (hSpeed - engineSpeed).
         // These segments sit above the normal bars and revert to barColor when boost ends.
-        public int   boostBarColor = 0xFFFF3333;
+        public int   boostBarColor = 0xFFFFD831;
 
         // Speed text position relative to the bar's top-left corner.
         // Negative textOffsetY places the text above the bar.
@@ -118,9 +125,9 @@ public class MomentumConfig {
     }
 
     public static class ResponsiveDrift {
-        public float   slipAngle         = 33f;
+        public float   slipAngle         = 45f;
         public float   slipConvergeRate  = 0.18f; // fraction of remaining distance closed per tick (exponential ease-out toward target)
-        public float   slipDecay         = 3.5f;  // deg/tick removed on release (linear, same formula as Arcade drift)
+        public float   slipDecay         = 4.4f;  // deg/tick removed on release (linear, same formula as Arcade drift)
         public float   slipDecaySpeedRef = 0.6f;  // reference speed for speed-adjusted decay
         public float   boost             = 0.04f; // engine speed bonus on clean release
         public int     boostDuration     = 40;    // ticks the boost animation plays (20 ticks = 1 s)
@@ -139,7 +146,7 @@ public class MomentumConfig {
         public boolean brakeEnabled      = true;
         public boolean cameraEnabled     = true;
         public float   cameraScale       = 1.8f;
-        public float   cameraLerpIn      = 0.18f;
+        public float   cameraLerpIn      = 0.04f;
         public float   cameraLerpOut     = 0.25f;
     }
 
@@ -151,7 +158,7 @@ public class MomentumConfig {
 
     public static class ODrift {
         public enum Profile { VANILLA, ARCADE, RESPONSIVE }
-        public Profile profile = Profile.ARCADE;
+        public Profile profile = Profile.RESPONSIVE;
     }
 
     // ── Serialisation ─────────────────────────────────────────────────────────

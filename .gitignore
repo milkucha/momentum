@@ -8,3 +8,8 @@ bin/
 .idea/
 *.iml
 .vscode/
+
+# Claude agent files
+CLAUDE.md
+AGENTS.md
+FORUM.md
