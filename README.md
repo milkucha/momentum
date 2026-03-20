@@ -24,6 +24,7 @@ A fully configurable add-on for [Automobility](https://modrinth.com/mod/automobi
 All parameters can be tweaked and/or toggled via the config file or the options menu (if ModMenu and YACL are available)
 
 Still in BETA - currently working on 1.18.2, 1.19.2, 1.20, 1.21, 1.21.1 support.
+Built with support from Claude Code.
 
 ## Dependencies
 
@@ -35,5 +36,3 @@ Still in BETA - currently working on 1.18.2, 1.19.2, 1.20, 1.21, 1.21.1 support.
 | [Automobility](https://modrinth.com/mod/automobility) | 0.4.2.b+1.20.1 | Yes |
 | [ModMenu](https://modrinth.com/mod/modmenu) | 7.1.0 | Optional |
 | [YACL](https://modrinth.com/mod/yacl) | 3.6.1+1.20.1-fabric | Optional |
-
-ModMenu and YACL are only needed to use the in-game options menu. The mod works without them — use the `momentum.json` config file to tweak settings instead.
