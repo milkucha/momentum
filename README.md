@@ -43,10 +43,6 @@ All parameters can be tweaked and/or toggled via the config file or the options 
 </div>
 <p align=center>Camera effects</p>
 
-<div align="center">
-<img src="https://i.imgur.com/uEtwTne.gif" alt="drift" style="display: block; margin: 0 auto;">
-</div>
-<p align=center>Configurable interface</p>
 
 Still in BETA - currently working on 1.18.2, 1.19.2, 1.20, 1.21, 1.21.1 support.
 
