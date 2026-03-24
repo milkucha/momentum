@@ -29,8 +29,13 @@ Built with support from Claude Code.
 
 ## Dependencies
 Minecraft (1.20.1)
+
 Fabric Loader (0.15.11+)
+
 Fabric API (0.92.2+1.20.1)
+
 [Automobility](https://modrinth.com/mod/automobility) (0.4.2.b+1.20.1)
+
 [ModMenu](https://modrinth.com/mod/modmenu) (7.1.0) OPTIONAL
+
 [YACL](https://modrinth.com/mod/yacl) (3.6.1+1.20.1-fabric) OPTIONAL
