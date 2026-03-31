@@ -1,7 +1,6 @@
 .gradle/
 build/
 run/
-libs/*.jar
 *.class
 out/
 bin/
@@ -13,4 +12,5 @@ bin/
 CLAUDE.md
 AGENTS.md
 FORUM.md
+momentum-context.md
 .claude/
