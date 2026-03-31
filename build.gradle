@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.7-SNAPSHOT'
+    id 'fabric-loom' version '1.15-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -28,12 +28,12 @@ dependencies {
     modLocalRuntime(fileTree(dir: 'libs', include: '*.jar'))
 
     // ModMenu — optional; players install separately
-    modCompileOnly "com.terraformersmc:modmenu:7.1.0"
-    modLocalRuntime "com.terraformersmc:modmenu:7.1.0"
+    modCompileOnly "com.terraformersmc:modmenu:7.0.1"
+    modLocalRuntime "com.terraformersmc:modmenu:7.0.1"
 
     // YACL — optional; players install separately
-    modCompileOnly "dev.isxander:yet-another-config-lib:3.6.1+1.20.1-fabric"
-    modLocalRuntime "dev.isxander:yet-another-config-lib:3.6.1+1.20.1-fabric"
+    modCompileOnly "dev.isxander:yet-another-config-lib:3.6.6+1.20.1-fabric"
+    modLocalRuntime "dev.isxander:yet-another-config-lib:3.6.6+1.20.1-fabric"
 }
 
 processResources {
