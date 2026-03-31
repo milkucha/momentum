@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.7-SNAPSHOT'
+    id 'fabric-loom' version '1.13-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -24,16 +24,19 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // Automobility jar placed in libs/ — compile against it but don't bundle it
-    modCompileOnly(fileTree(dir: 'libs', include: '*.jar'))
-    modLocalRuntime(fileTree(dir: 'libs', include: '*.jar'))
+    modCompileOnly files('libs/automobility-0.5.0.h+1.21.1-fabric.jar')
+    modLocalRuntime files('libs/automobility-0.5.0.h+1.21.1-fabric.jar')
+    // Automobility's bundled JiJ deps — Loom doesn't extract these automatically in dev
+    modLocalRuntime files('libs/obj-0.4.0.jar')
+    modLocalRuntime files('libs/jsonem-0.3+1.21.jar')
 
     // ModMenu — optional; players install separately
-    modCompileOnly "com.terraformersmc:modmenu:7.1.0"
-    modLocalRuntime "com.terraformersmc:modmenu:7.1.0"
+    modCompileOnly "com.terraformersmc:modmenu:11.0.4"
+    modLocalRuntime "com.terraformersmc:modmenu:11.0.4"
 
     // YACL — optional; players install separately
-    modCompileOnly "dev.isxander:yet-another-config-lib:3.6.1+1.20.1-fabric"
-    modLocalRuntime "dev.isxander:yet-another-config-lib:3.6.1+1.20.1-fabric"
+    modCompileOnly "dev.isxander:yet-another-config-lib:3.8.1+1.21.1-fabric"
+    modLocalRuntime "dev.isxander:yet-another-config-lib:3.8.1+1.21.1-fabric"
 }
 
 processResources {
@@ -44,13 +47,23 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 17
+    it.options.release = 21
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+loom {
+    runs {
+        client {
+            vmArg "-Dmixin.debug.verbose=true"
+            vmArg "-Dmixin.debug.export=true"
+            vmArg "-Dfabric.development=true"
+        }
+    }
 }
 
 jar {

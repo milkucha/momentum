@@ -63,8 +63,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
 
     @Shadow private boolean drifting;
-    @Shadow private boolean steeringLeft;
-    @Shadow private boolean steeringRight;
+    @Shadow public AutomobileEntity.Input input;
     @Shadow private float engineSpeed;
     @Shadow private float hSpeed;
     @Shadow private float steering;
@@ -210,7 +209,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
         if (!MomentumConfig.get().enabled) return original;
         if (!MomentumConfig.get().steering.enabled) return original;
         if (drifting) return original;
-        if (steeringLeft || steeringRight) return MomentumConfig.get().steering.rampRate;
+        if (input.steering != 0) return MomentumConfig.get().steering.rampRate;
         return MomentumConfig.get().steering.centerRate;
     }
 
@@ -299,7 +298,7 @@ public abstract class AutomobileEntityMixin implements SteeringDebugAccessor {
             }
 
             if (mcOnGnd) {
-                turboCharge += ((steeringLeft && driftDir < 0) || (steeringRight && driftDir > 0)) ? 2 : 1;
+                turboCharge += ((input.steering < 0 && driftDir < 0) || (input.steering > 0 && driftDir > 0)) ? 2 : 1;
             }
         }
 

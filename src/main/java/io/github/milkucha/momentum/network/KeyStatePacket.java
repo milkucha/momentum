@@ -1,6 +1,9 @@
 package io.github.milkucha.momentum.network;
 
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
 /**
@@ -11,27 +14,19 @@ import net.minecraft.util.Identifier;
  * Received on the server to populate ServerKeyState so AutomobileEntityMixin
  * can read the correct key state regardless of logical side.
  */
-public final class KeyStatePacket {
+public record KeyStatePacket(boolean brake, boolean drift) implements CustomPayload {
 
-    public static final Identifier ID = new Identifier("momentum", "key_state");
+    public static final CustomPayload.Id<KeyStatePacket> ID =
+        new CustomPayload.Id<>(Identifier.of("momentum", "key_state"));
 
-    public final boolean brake;
-    public final boolean drift;
+    public static final PacketCodec<PacketByteBuf, KeyStatePacket> CODEC = PacketCodec.tuple(
+        PacketCodecs.BOOL, KeyStatePacket::brake,
+        PacketCodecs.BOOL, KeyStatePacket::drift,
+        KeyStatePacket::new
+    );
 
-    public KeyStatePacket(boolean brake, boolean drift) {
-        this.brake = brake;
-        this.drift = drift;
-    }
-
-    public static KeyStatePacket read(PacketByteBuf buf) {
-        return new KeyStatePacket(
-            buf.readBoolean(),
-            buf.readBoolean()
-        );
-    }
-
-    public void write(PacketByteBuf buf) {
-        buf.writeBoolean(brake);
-        buf.writeBoolean(drift);
+    @Override
+    public CustomPayload.Id<? extends CustomPayload> getId() {
+        return ID;
     }
 }

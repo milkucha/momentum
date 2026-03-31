@@ -14,11 +14,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
@@ -75,10 +74,11 @@ public class MomentumClient implements ClientModInitializer {
 
         // ── HUD rendering ─────────────────────────────────────────────────────
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
+        HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
             MomentumConfig cfg = MomentumConfig.get();
             if (!cfg.enabled) return;
             if (!cfg.barHud.enabled) return;
+            float tickDelta = tickCounter.getTickDelta(true);
             BarHud.render(drawContext, tickDelta);
             BarHud.renderDebug(drawContext, tickDelta);
         });
@@ -104,9 +104,7 @@ public class MomentumClient implements ClientModInitializer {
             if (client.getNetworkHandler() != null
                     && (nb != pktBrake || nd != pktDrift)) {
                 pktBrake = nb; pktDrift = nd;
-                PacketByteBuf buf = PacketByteBufs.create();
-                new KeyStatePacket(nb, nd).write(buf);
-                ClientPlayNetworking.send(KeyStatePacket.ID, buf);
+                ClientPlayNetworking.send(new KeyStatePacket(nb, nd));
             }
         });
 

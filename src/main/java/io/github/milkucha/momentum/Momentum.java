@@ -3,6 +3,7 @@ package io.github.milkucha.momentum;
 import io.github.milkucha.momentum.network.KeyStatePacket;
 import io.github.milkucha.momentum.network.ServerKeyState;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
@@ -20,13 +21,13 @@ public class Momentum implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        // Register the payload type for the C2S key-state packet.
+        PayloadTypeRegistry.playC2S().register(KeyStatePacket.ID, KeyStatePacket.CODEC);
+
         // Receive key state from client and store it per-player.
         // Runs on the Netty network thread — ServerKeyState uses ConcurrentHashMap.
-        ServerPlayNetworking.registerGlobalReceiver(KeyStatePacket.ID,
-            (server, player, handler, buf, responseSender) -> {
-                KeyStatePacket pkt = KeyStatePacket.read(buf);
-                ServerKeyState.set(player.getUuid(), pkt.brake, pkt.drift);
-            });
+        ServerPlayNetworking.registerGlobalReceiver(KeyStatePacket.ID, (payload, context) ->
+            ServerKeyState.set(context.player().getUuid(), payload.brake(), payload.drift()));
 
         // Clear state on disconnect so a reconnecting player starts clean.
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->

@@ -17,7 +17,7 @@ import net.minecraft.util.math.random.Random;
 public class ResponsiveDriftSkidSound extends MovingSoundInstance {
 
     private static final Identifier SKID_ID =
-            new Identifier("automobility", "entity.automobile.skid");
+            Identifier.of("automobility", "entity.automobile.skid");
 
     private final AutomobileEntity automobile;
     private final SteeringDebugAccessor accessor;
