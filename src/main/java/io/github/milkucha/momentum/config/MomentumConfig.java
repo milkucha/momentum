@@ -41,7 +41,7 @@ public class MomentumConfig {
         public boolean enabled       = true;
         public float rampRate       = 0.12f;
         public float centerRate     = 0.42f;  // rate back to center when no steering key held
-        public float understeer     = 2.0f;
+        public float understeer     = 0.5f;
         public float understeerCurve = 3.0f;
     }
 
