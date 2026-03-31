@@ -23,7 +23,7 @@ A fully configurable add-on for [Automobility](https://modrinth.com/mod/automobi
 
 All parameters can be tweaked and/or toggled via the config file or the options menu (if ModMenu and YACL are available)
 
-Still in BETA - currently working on 1.18.2, 1.19.2, 1.20, 1.21, 1.21.1 support.
+Still in BETA
 
 Built with support from Claude Code.
 
