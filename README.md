@@ -32,7 +32,6 @@ Minecraft: 1.20.1
 Yarn mappings: 1.20.1+build.10  
 Fabric Loader: 0.15.11  
 Fabric API: 0.92.2+1.20.1  
-Automobility (libs/): automobility-0.4.2.b+1.20.1-fabric.jar  
-jsonem (libs/): jsonem-0.2.1+1.20.jar  
+Automobility: automobility-0.4.2.b+1.20.1-fabric.jar  
 ModMenu: 7.1.0 (Optional)  
 YACL: 3.6.1+1.20.1-fabric (Optional)
