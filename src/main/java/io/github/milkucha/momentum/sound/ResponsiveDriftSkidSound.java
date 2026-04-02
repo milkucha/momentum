@@ -3,7 +3,7 @@ package io.github.milkucha.momentum.sound;
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
 import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import net.minecraft.client.sound.MovingSoundInstance;
-import net.minecraft.registry.Registries;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
@@ -36,8 +36,8 @@ public class ResponsiveDriftSkidSound extends MovingSoundInstance {
     }
 
     private static SoundEvent resolveSound() {
-        SoundEvent event = Registries.SOUND_EVENT.get(SKID_ID);
-        return event != null ? event : SoundEvent.of(SKID_ID);
+        SoundEvent event = Registry.SOUND_EVENT.get(SKID_ID);
+        return event != null ? event : new SoundEvent(SKID_ID);
     }
 
     @Override

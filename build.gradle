@@ -21,17 +21,19 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation("net.fabricmc.fabric-api:fabric-api:${project.fabric_version}") {
+        exclude group: "net.fabricmc", module: "fabric-loader"
+    }
 
     // Automobility jar placed in libs/ — compile against it but don't bundle it
     modCompileOnly(fileTree(dir: 'libs', include: '*.jar'))
     modLocalRuntime(fileTree(dir: 'libs', include: '*.jar'))
 
     // ModMenu — optional; players install separately
-    modCompileOnly "com.terraformersmc:modmenu:7.0.1"
-    modLocalRuntime "com.terraformersmc:modmenu:7.0.1"
+    modCompileOnly "com.terraformersmc:modmenu:4.1.2"
+    modLocalRuntime "com.terraformersmc:modmenu:4.1.2"
 
-    // YACL — loaded from libs/ (3.2.2+1.20, no Maven build available for bare 1.20)
+    // YACL — loaded from libs/ (2.2.0+1.19.2, v2 API)
 }
 
 processResources {

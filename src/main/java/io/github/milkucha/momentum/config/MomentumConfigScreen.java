@@ -1,19 +1,18 @@
 package io.github.milkucha.momentum.config;
 
-import dev.isxander.yacl3.api.ConfigCategory;
-import dev.isxander.yacl3.api.LabelOption;
-import dev.isxander.yacl3.api.Option;
-import dev.isxander.yacl3.api.OptionDescription;
-import dev.isxander.yacl3.api.OptionGroup;
-import dev.isxander.yacl3.api.YetAnotherConfigLib;
-import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
-import net.minecraft.client.util.InputUtil;
-import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
-import dev.isxander.yacl3.api.controller.ColorControllerBuilder;
-import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
-import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
+import dev.isxander.yacl.api.ConfigCategory;
+import dev.isxander.yacl.api.LabelOption;
+import dev.isxander.yacl.api.Option;
+import dev.isxander.yacl.api.OptionGroup;
+import dev.isxander.yacl.api.YetAnotherConfigLib;
+import dev.isxander.yacl.gui.controllers.BooleanController;
+import dev.isxander.yacl.gui.controllers.ColorController;
+import dev.isxander.yacl.gui.controllers.cycling.EnumController;
+import dev.isxander.yacl.gui.controllers.slider.FloatSliderController;
+import dev.isxander.yacl.gui.controllers.slider.IntegerSliderController;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 
 import java.awt.Color;
@@ -232,22 +231,19 @@ public class MomentumConfigScreen {
 
     private static ConfigCategory general(MomentumConfig cfg, MomentumConfig def, Screen parent) {
 
-        // Profile selector — applies immediately to config and rebuilds screen
         Option<MomentumConfig.ODrift.Profile> profileOpt =
-                Option.<MomentumConfig.ODrift.Profile>createBuilder()
+                Option.createBuilder(MomentumConfig.ODrift.Profile.class)
                         .name(Text.literal("Drift Profile"))
-                        .description(OptionDescription.of(Text.literal(
+                        .tooltip(Text.literal(
                                 "Which drift behaviour is triggered by the Handbrake (drift) key.\n\n" +
                                 "Vanilla Drift    — Automobility's own drift. No slip angle, just speed.\n" +
                                 "Arcade Drift     — Quick sideslip. Precise and easy to control.\n" +
                                 "Responsive Drift — Deep slide. Wide angle, steering-driven, rewarding.\n\n" +
-                                "Default: Arcade Drift")))
+                                "Default: Arcade Drift"))
                         .binding(def.oDrift.profile,
                                 () -> cfg.oDrift.profile,
                                 v  -> cfg.oDrift.profile = v)
-                        .controller(opt -> EnumControllerBuilder.create(opt)
-                                .enumClass(MomentumConfig.ODrift.Profile.class)
-                                .formatValue(v -> Text.literal(switch (v) {
+                        .controller(opt -> new EnumController<>(opt, v -> Text.literal(switch (v) {
                                     case VANILLA    -> "Vanilla Drift";
                                     case ARCADE     -> "Arcade Drift";
                                     case RESPONSIVE -> "Responsive Drift";
@@ -261,10 +257,6 @@ public class MomentumConfigScreen {
                         })
                         .build();
 
-        // Build feature toggles individually so we can attach immediate-write listeners.
-        // YACL only calls the binding setter on Save, so without these listeners a
-        // profile switch (which calls cfg.save() + screen rebuild before Save is pressed)
-        // would lose any pending toggle changes.
         Option<Boolean> movOpt = boolOpt("Movement",
                 "Enable all custom Movement features (coast, acceleration, braking, speed cap).",
                 def.movement.enabled,
@@ -625,13 +617,12 @@ public class MomentumConfigScreen {
         Text descLine = desc.isEmpty()
                 ? Text.literal("Default: " + defStr)
                 : Text.literal(desc + "\n\nDefault: " + defStr);
-        return Option.<Float>createBuilder()
+        return Option.createBuilder(Float.class)
                 .name(Text.literal(name))
-                .description(OptionDescription.of(descLine))
+                .tooltip(descLine)
                 .binding(def, get, set)
-                .controller(opt -> FloatSliderControllerBuilder.create(opt)
-                        .range(min, max).step(step)
-                        .formatValue(v -> Text.literal(String.format("%.3f", v))))
+                .controller(opt -> new FloatSliderController(opt, min, max, step,
+                        v -> Text.literal(String.format("%.3f", v))))
                 .build();
     }
 
@@ -641,11 +632,11 @@ public class MomentumConfigScreen {
         Text descLine = desc.isEmpty()
                 ? Text.literal("Default: " + def)
                 : Text.literal(desc + "\n\nDefault: " + def);
-        return Option.<Integer>createBuilder()
+        return Option.createBuilder(Integer.class)
                 .name(Text.literal(name))
-                .description(OptionDescription.of(descLine))
+                .tooltip(descLine)
                 .binding(def, get, set)
-                .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(min, max).step(step))
+                .controller(opt -> new IntegerSliderController(opt, min, max, step))
                 .build();
     }
 
@@ -654,11 +645,11 @@ public class MomentumConfigScreen {
         Text descLine = desc.isEmpty()
                 ? Text.literal("Default: " + def)
                 : Text.literal(desc + "\n\nDefault: " + def);
-        return Option.<Boolean>createBuilder()
+        return Option.createBuilder(Boolean.class)
                 .name(Text.literal(name))
-                .description(OptionDescription.of(descLine))
+                .tooltip(descLine)
                 .binding(def, get, set)
-                .controller(BooleanControllerBuilder::create)
+                .controller(opt -> new BooleanController(opt, true))
                 .build();
     }
 
@@ -668,13 +659,13 @@ public class MomentumConfigScreen {
         Text descLine = desc.isEmpty()
                 ? Text.literal("Default: " + defStr)
                 : Text.literal(desc + "\nDefault: " + defStr);
-        return Option.<Color>createBuilder()
+        return Option.createBuilder(Color.class)
                 .name(Text.literal(name))
-                .description(OptionDescription.of(descLine))
+                .tooltip(descLine)
                 .binding(new Color(defArgb, true),
                         () -> new Color(get.get(), true),
                         v -> set.accept(v.getRGB()))
-                .controller(opt -> ColorControllerBuilder.create(opt).allowAlpha(true))
+                .controller(opt -> new ColorController(opt, true))
                 .build();
     }
 

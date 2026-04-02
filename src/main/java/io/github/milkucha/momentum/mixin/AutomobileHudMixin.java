@@ -3,7 +3,7 @@ package io.github.milkucha.momentum.mixin;
 import io.github.foundationgames.automobility.entity.AutomobileEntity;
 import io.github.foundationgames.automobility.screen.AutomobileHud;
 import io.github.milkucha.momentum.config.MomentumConfig;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,12 +13,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * AutomobileHudMixin — suppresses Automobility's built-in speedometer so
  * Momentum's own HUD panel renders in its place without overlap.
  *
- * We only cancel renderSpeedometer(). The renderControlHints() call (key binding
- * hints that fade in when the car is idle) is intentionally untouched.
+ * We only cancel renderSpeedometer(). The renderControlHints() call is
+ * intentionally also cancelled to declutter the screen.
  *
- * Note: the correct type here is GuiGraphics (the Mojang/common name used in
- * Automobility's source), NOT DrawContext (which is Fabric's yarn-mapped alias).
- * Since we set remap=false, we use Automobility's own unobfuscated names.
+ * Note: AutomobileHud in 1.19.2 uses MatrixStack (not DrawContext, which
+ * was introduced in MC 1.20). remap=false so we target Automobility names directly.
  */
 @Mixin(value = AutomobileHud.class, remap = false)
 public abstract class AutomobileHudMixin {
@@ -29,7 +28,7 @@ public abstract class AutomobileHudMixin {
         cancellable = true
     )
     private static void momentum$suppressOriginalSpeedometer(
-            DrawContext graphics,
+            MatrixStack matrices,
             AutomobileEntity auto,
             CallbackInfo ci) {
         MomentumConfig cfg = MomentumConfig.get();
@@ -43,7 +42,7 @@ public abstract class AutomobileHudMixin {
         cancellable = true
     )
     private static void momentum$suppressControlHints(
-            DrawContext graphics,
+            MatrixStack matrices,
             float alpha,
             CallbackInfo ci) {
         if (!MomentumConfig.get().enabled) return;

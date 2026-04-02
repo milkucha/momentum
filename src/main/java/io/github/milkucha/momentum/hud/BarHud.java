@@ -4,7 +4,8 @@ import io.github.foundationgames.automobility.entity.AutomobileEntity;
 import io.github.milkucha.momentum.accessor.SteeringDebugAccessor;
 import io.github.milkucha.momentum.config.MomentumConfig;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.DrawableHelper;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ public class BarHud {
     private static final int COL_PANEL_BG   = 0xAA000000;
     private static final int COL_PANEL_EDGE = 0xFF444444;
 
-    public static void render(DrawContext graphics, float tickDelta) {
+    public static void render(MatrixStack matrices, float tickDelta) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null) return;
 
@@ -52,13 +53,11 @@ public class BarHud {
         double speedKmh = auto.getEffectiveSpeed() * TO_KMH;
 
         // Separate engine vs boost contributions so boost bars can be coloured differently.
-        // engineSpeed is the base; hSpeed = engineSpeed + boostSpeed.
         double engineKmh = (auto instanceof SteeringDebugAccessor acc)
                 ? acc.momentum$getEngineSpeed() * TO_KMH
                 : speedKmh;
-        engineKmh = Math.max(0.0, engineKmh); // clamp: engineSpeed can go negative in reverse
+        engineKmh = Math.max(0.0, engineKmh);
 
-        // How many segments fit and how many should be lit
         int numBars         = (b.totalWidth + b.barSpacing) / (b.barWidth + b.barSpacing);
         int engineBars      = Math.max(1, (int) Math.round(Math.min(engineKmh / b.maxSpeedKmh, 1.0) * numBars));
         int totalFilledBars = Math.max(1, (int) Math.round(Math.min(speedKmh  / b.maxSpeedKmh, 1.0) * numBars));
@@ -66,20 +65,19 @@ public class BarHud {
         for (int i = 0; i < totalFilledBars; i++) {
             int bx    = originX + i * (b.barWidth + b.barSpacing);
             int color = i < engineBars ? b.barColor : b.boostBarColor;
-            graphics.fill(bx, originY, bx + b.barWidth, originY + b.totalHeight, color);
+            DrawableHelper.fill(matrices, bx, originY, bx + b.barWidth, originY + b.totalHeight, color);
         }
 
-        // Speed text — positioned relative to bar origin via textOffsetX/Y
         String speedStr = String.format("%.0f km/h", speedKmh);
-        graphics.drawText(client.textRenderer, speedStr,
-                originX + b.textOffsetX,
-                originY + b.textOffsetY,
-                b.textColor, true);
+        client.textRenderer.drawWithShadow(matrices, speedStr,
+                (float)(originX + b.textOffsetX),
+                (float)(originY + b.textOffsetY),
+                b.textColor);
     }
 
     // ── Debug overlay ─────────────────────────────────────────────────────────
 
-    public static void renderDebug(DrawContext graphics, float tickDelta) {
+    public static void renderDebug(MatrixStack matrices, float tickDelta) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null) return;
         Entity vehicle = client.player.getVehicle();
@@ -120,10 +118,10 @@ public class BarHud {
                 : screenW - dbgW - (int)(screenW * cfg.barHud.debugXFraction);
         int dbgY = cfg.barHud.debugY;
 
-        drawPanel(graphics, dbgX, dbgY, dbgW, dbgH);
+        drawPanel(matrices, dbgX, dbgY, dbgW, dbgH);
         for (int i = 0; i < texts.size(); i++) {
-            graphics.drawText(client.textRenderer, texts.get(i),
-                    dbgX + padX, dbgY + padY + i * lineH, colors.get(i), true);
+            client.textRenderer.drawWithShadow(matrices, texts.get(i),
+                    (float)(dbgX + padX), (float)(dbgY + padY + i * lineH), colors.get(i));
         }
     }
 
@@ -134,11 +132,11 @@ public class BarHud {
 
     private static String yn(boolean v) { return v ? "YES" : "no"; }
 
-    private static void drawPanel(DrawContext g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, COL_PANEL_BG);
-        g.fill(x,         y,         x + w,     y + 1,     COL_PANEL_EDGE); // top
-        g.fill(x,         y + h - 1, x + w,     y + h,     COL_PANEL_EDGE); // bottom
-        g.fill(x,         y,         x + 1,     y + h,     COL_PANEL_EDGE); // left
-        g.fill(x + w - 1, y,         x + w,     y + h,     COL_PANEL_EDGE); // right
+    private static void drawPanel(MatrixStack matrices, int x, int y, int w, int h) {
+        DrawableHelper.fill(matrices, x, y, x + w, y + h, COL_PANEL_BG);
+        DrawableHelper.fill(matrices, x,         y,         x + w,     y + 1,     COL_PANEL_EDGE); // top
+        DrawableHelper.fill(matrices, x,         y + h - 1, x + w,     y + h,     COL_PANEL_EDGE); // bottom
+        DrawableHelper.fill(matrices, x,         y,         x + 1,     y + h,     COL_PANEL_EDGE); // left
+        DrawableHelper.fill(matrices, x + w - 1, y,         x + w,     y + h,     COL_PANEL_EDGE); // right
     }
 }

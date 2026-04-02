@@ -62,7 +62,7 @@ public class MomentumClient implements ClientModInitializer {
         ));
 
         final KeyBinding openOptionsKey;
-        if (FabricLoader.getInstance().isModLoaded("yet_another_config_lib_v3")) {
+        if (FabricLoader.getInstance().isModLoaded("yet-another-config-lib")) {
             openOptionsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                     "key.momentum.open_options",
                     InputUtil.Type.KEYSYM,
@@ -75,12 +75,12 @@ public class MomentumClient implements ClientModInitializer {
 
         // ── HUD rendering ─────────────────────────────────────────────────────
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
+        HudRenderCallback.EVENT.register((matrices, tickDelta) -> {
             MomentumConfig cfg = MomentumConfig.get();
             if (!cfg.enabled) return;
             if (!cfg.barHud.enabled) return;
-            BarHud.render(drawContext, tickDelta);
-            BarHud.renderDebug(drawContext, tickDelta);
+            BarHud.render(matrices, tickDelta);
+            BarHud.renderDebug(matrices, tickDelta);
         });
 
         // ── Key polling ───────────────────────────────────────────────────────
