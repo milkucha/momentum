@@ -3,7 +3,7 @@
 </p>
 
 
-# momentum for Automobility
+# momentum for Automobility (0.5.0.h+1.21.1)
 
 A fully configurable add-on for [Automobility](https://modrinth.com/mod/automobility) to improve the mod’s movement logic. Makes the driving experience more immersive while still keeping it vanilla!
 
@@ -28,14 +28,10 @@ Still in BETA
 Built with support from Claude Code.
 
 ## Dependencies
-Minecraft (1.20.1)
-
-Fabric Loader (0.15.11+)
-
-Fabric API (0.92.2+1.20.1)
-
-[Automobility](https://modrinth.com/mod/automobility) (0.4.2.b+1.20.1)
-
-[ModMenu](https://modrinth.com/mod/modmenu) (7.1.0) OPTIONAL
-
-[YACL](https://modrinth.com/mod/yacl) (3.6.1+1.20.1-fabric) OPTIONAL
+Minecraft: 1.21.1  
+Yarn mappings: 1.21.1+build.3  
+Fabric Loader: 0.18.5  
+Fabric API: 0.116.9+1.21.1  
+Automobility: automobility-0.5.0.h+1.21.1-fabric.jar  
+ModMenu: 11.0.4 (Optional)  
+YACL: 3.8.1+1.21.1-fabric (Optional)
